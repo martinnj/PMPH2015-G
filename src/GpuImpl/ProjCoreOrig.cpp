@@ -45,7 +45,7 @@ void setPayoff(const REAL strike, PrivGlobs& globs )
 }
 
 inline void tridag(
-    const vector<REAL>&   a,   // size [n]
+    vector<REAL>&   a,   // size [n]
     const vector<REAL>&   b,   // size [n]
     const vector<REAL>&   c,   // size [n]
     const vector<REAL>&   r,   // size [n]
@@ -59,28 +59,34 @@ inline void tridag(
     u[0]  = r[0];
     uu[0] = b[0];
 
-    // Can be parallelized by rewriting the loop into a series of scans.
-    for(i=1; i<n; i++) { // par
+    // Can be parallelized by rewriting the loop into a series of scans on u and uu.
+    for(i=1; i<n; i++) { // seq
         beta  = a[i] / uu[i-1];
         uu[i] = b[i] - beta*c[i-1];
         u[i]  = r[i] - beta*u[i-1];
     }
 
-#if 1
+#if 0
     // X) this is a backward recurrence
     u[n-1] = u[n-1] / uu[n-1];
 
 
     // Can be parallelized by rewriting the loop into a series of scans.
-    for(i=n-2; i>=0; i--) { // par
+    for(i=n-2; i>=0; i--) { // seq
         u[i] = (u[i] - c[i]*u[i+1]) / uu[i];
     }
 #else
     // Hint: X) can be written smth like (once you make a non-constant)
-    for(i=0; i<n; i++) a[i] =  u[n-1-i];
+    for(i=0; i<n; i++) // TODO: par
+        a[i] = u[n-1-i]; // a = reverse u
+
     a[0] = a[0] / uu[n-1];
-    for(i=1; i<n; i++) a[i] = (a[i] - c[n-1-i]*a[i-1]) / uu[n-1-i];
-    for(i=0; i<n; i++) u[i] = a[n-1-i];
+
+    for(i=1; i<n; i++) // TODO: Make it a scan bro.
+        a[i] = (a[i] - c[n-1-i]*a[i-1]) / uu[n-1-i];
+
+    for(i=0; i<n; i++) // TODO: par
+        u[i] = a[n-1-i]; // u = reverse a
 #endif
 }
 
