@@ -11,7 +11,7 @@ OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreOrig.o
 EXECUTABLE  =runproject
 
 
-default: gpu
+default: clean gpu run_small
 
 .cpp.o: $(SOURCES_CPP) $(HELPERS)
 	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<

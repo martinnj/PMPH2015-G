@@ -87,3 +87,15 @@ void initOperator(  const vector<REAL>& x,
 	Dxx[n-1][2] = 0.0;
     Dxx[n-1][3] = 0.0;
 }
+
+
+void transpose(vector<vector<REAL> > MIn,
+               vector<vector<REAL> >* MOut,
+               unsigned int M,
+               unsigned int N) {
+    for (int i = 0 ; i < M ; i++) {
+        for (int j = 0 ; j < N ; j++) {
+            (*MOut)[i][j] = MIn[j][i];
+       }
+   }
+}

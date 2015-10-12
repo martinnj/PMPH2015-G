@@ -5,6 +5,7 @@ void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REA
 {
     // parallelizable directly since all reads and writes are independent.
     // Degree of parallelism: myX.size*myY.size
+    // Access to myVarX and myVarY is already coalesced.
     // TODO: Examine how tiling/shared memory can be used.
     for(unsigned i=0;i<globs.myX.size();++i) // par
         for(unsigned j=0;j<globs.myY.size();++j) { // par
@@ -28,11 +29,18 @@ void setPayoff(const REAL strike, PrivGlobs& globs )
     // in myX.size*myY.size mem accesses.
     // If array expansion, only myX.size+myY.size mem accesses.
     // TODO: To be determined based on myX.size and myY.size.
-	for(unsigned i=0;i<globs.myX.size();++i) // par
-	{
-		REAL payoff = max(globs.myX[i]-strike, (REAL)0.0);
+    // Small dataset= NUM_X = 32 ; NUM_Y = 256
+    // 8192 vs 288 -- array expansion is preferable.
+
+    // Array expansion **DONE.
+    REAL payoff[globs.myX.size()];
+    for(unsigned i=0;i<globs.myX.size();++i)
+        payoff[i] = max(globs.myX[i]-strike, (REAL)0.0);
+
+    // Already coalesced.
+	for(unsigned i=0;i<globs.myX.size();++i) { // par
 		for(unsigned j=0;j<globs.myY.size();++j) // par
-			globs.myResult[i][j] = payoff;
+			globs.myResult[i][j] = payoff[i];
 	}
 }
 
@@ -89,26 +97,32 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
     vector<vector<REAL> > u(numY, vector<REAL>(numX));   // [numY][numX]
+    vector<vector<REAL> > uT(numX, vector<REAL>(numY));   // [numX][numY]
     vector<vector<REAL> > v(numX, vector<REAL>(numY));   // [numX][numY]
-    vector<REAL> a(numZ), b(numZ), c(numZ), y(numZ);     // [max(numX,numY)]
+    //vector<REAL> a(numZ), b(numZ), c(numZ), y(numZ);     // [max(numX,numY)]
+    vector<REAL> y(numZ);
+
     vector<REAL> yy(numZ);  // temporary used in tridag  // [max(numX,numY)]
 
     //	explicit x
     // parallelizable directly since all reads and writes are independent.
     // Degree of parallelism: numX*numY.
     // TODO: Examine how tiling/shared memory can be used on globs (.myResult).
+
+    // Reads are coalosced but writes are not.
+    // TODO: Coalesced access via matrix transposition of u/uT. **DONE
     for(i=0;i<numX;i++) { //par
         for(j=0;j<numY;j++) { //par
-            u[j][i] = dtInv*globs.myResult[i][j];
+            uT[i][j] = dtInv*globs.myResult[i][j];
 
             if(i > 0) {
-              u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
+              uT[i][j] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
                             * globs.myResult[i-1][j];
             }
-            u[j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
+            uT[i][j]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
                             * globs.myResult[i][j];
             if(i < numX-1) {
-              u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
+              uT[i][j] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
                             * globs.myResult[i+1][j];
             }
         }
@@ -119,8 +133,20 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     // Degree of parallelism: numY*numX.
     // TODO: Examine how tiling/shared memory can be used on globs (.myResult).
     // and u.?
-    for(j=0;j<numY;j++) { //par
-        for(i=0;i<numX;i++) { //par
+
+    // Reads are coalosced but writes are not.
+    // TODO: Coalesced access via matrix transposition.
+    // TODO: Interchange loop. **DONE
+
+    // Loop interchanged, u transposed used here also, further utilizing the
+    // time used on allocation.
+    // Loop interchange chosen over matrix transposition, as then both
+    // v, globs.myVarY and globs.myResult would have to be transposed (i.e.
+    // mem allocation and computation time on transposition), and we deem this
+    // overhead greater than that of globs.myDyy non-coalesced mem access (which
+    // can be avoided in transposition).
+    for(i=0;i<numX;i++) { //par
+        for(j=0;j<numY;j++) { //par
             v[i][j] = 0.0;
 
             if(j > 0) {
@@ -133,15 +159,21 @@ rollback( const unsigned g, PrivGlobs& globs ) {
               v[i][j] +=  ( 0.5*globs.myVarY[i][j]*globs.myDyy[j][2] )
                          *  globs.myResult[i][j+1];
             }
-            u[j][i] += v[i][j];
+            uT[i][j] += v[i][j];
         }
     }
+    transpose(uT, &u, numY, numX);
 
+
+    vector<vector<REAL> > a(numY, vector<REAL>(numZ)), b(numY, vector<REAL>(numZ)), c(numY, vector<REAL>(numZ));     // [max(numX,numY)]
+    vector<vector<REAL> > aT(numZ, vector<REAL>(numY)), bT(numZ, vector<REAL>(numY)), cT(numZ, vector<REAL>(numY));
     //	implicit x
     // ASSUMING tridag is independent.
     // parallelizable directly since all reads and writes are independent.
     // Degree of parallelism: numY*numX.
     // TODO: Examine tridag
+    // TODO: MyDxx and myVarX is not coalesced.
+    /*
     for(j=0;j<numY;j++) { // par
         // parallelizable via loop distribution / array expansion.
         for(i=0;i<numX;i++) {  // par // here a, b,c should have size [numX]
@@ -151,6 +183,24 @@ rollback( const unsigned g, PrivGlobs& globs ) {
         }
         // here yy should have size [numX]
         tridag(a,b,c,u[j],numX,u[j],yy);
+    } */
+
+    // parallelizable via loop distribution / array expansion.
+    for(i=0;i<numX;i++) {  // par // here a, b,c should have size [numX]
+        for(j=0;j<numY;j++) { // par
+            aT[i][j] =		 - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][0]);
+            bT[i][j] = dtInv - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][1]);
+            cT[i][j] =		 - 0.5*(0.5*globs.myVarX[i][j]*globs.myDxx[i][2]);
+        }
+
+    }
+    transpose(aT, &a, numY, numZ);
+    transpose(bT, &b, numY, numZ);
+    transpose(cT, &c, numY, numZ);
+
+    for(j=0;j<numY;j++) {
+        // here yy should have size [numX]
+        tridag(a[j],b[j],c[j],u[j],numX,u[j],yy);
     }
 
     //	implicit y
@@ -158,19 +208,34 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     // parallelizable directly since all reads and writes are independent.
     // Degree of parallelism: numY*numX.
     // TODO: Examine tridag
+    // TODO: transpose myDyy and u for coalesced access.
+    // **DONE loop distributed (tridag part), uT mem reused (refilled with u),
+    // loop interchanged for mem colesced access, a,b,c matrices reused from
+    // prev allocation; used via matrix trandposition.
+    // myDyy is still not coalesced, same arguments as previus loop.
     for(i=0;i<numX;i++) { // par
         // parallelizable via loop distribution / array expansion.
         for(j=0;j<numY;j++) { // par  // here a, b, c should have size [numY]
-            a[j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
-            b[j] = dtInv - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][1]);
-            c[j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
+            aT[i][j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][0]);
+            bT[i][j] = dtInv - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][1]);
+            cT[i][j] =		 - 0.5*(0.5*globs.myVarY[i][j]*globs.myDyy[j][2]);
         }
+    }
+    transpose(aT, &a, numY, numZ);
+    transpose(bT, &b, numY, numZ);
+    transpose(cT, &c, numY, numZ);
 
-        for(j=0;j<numY;j++)
-            y[j] = dtInv*u[j][i] - 0.5*v[i][j];
+    transpose(u, &uT, numX, numY); //Must retranspose to uT because prev tridag
+                                   // modified u.
 
-        // here yy should have size [numY]
-        tridag(a,b,c,y,numY,globs.myResult[i],yy);
+    // TODO: parallelizable via array expansion after tridag is parallelized.
+    for(i=0;i<numX;i++) { // not yet par (tridag is not safe yet)
+        for(j=0;j<numY;j++) { // par
+            // here yy should have size [numY]
+            y[j] = dtInv*uT[i][j] - 0.5*v[i][j];
+        }
+        // here yy should have size [numX]
+        tridag(aT[i],bT[i],cT[i],y,numY,globs.myResult[i],yy);
     }
 }
 
@@ -217,15 +282,15 @@ void   run_GPU(
                       REAL*           res   // [outer] RESULT
 ) {
 
-    REAL strike = 0.001*i;
-    PrivGlobs    globs(numX, numY, numT);
-
     // Outerloop - Technically parallelizable, but restricts further
     // parallization further in.
     // If strike and globs is privatized, the loop can be parallelized.
     // Value is the limiting factor since most of the actual work is deeper in
     // the function.
+    #pragma omp parallel for default(shared) schedule(static) if(outer>8)
     for( unsigned i = 0; i < outer; ++ i ) {
+        REAL strike = 0.001*i;
+        PrivGlobs    globs(numX, numY, numT);
         res[i] = value( globs, s0, strike, t,
                         alpha, nu,    beta,
                         numX,  numY,  numT );

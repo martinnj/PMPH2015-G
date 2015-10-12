@@ -16,7 +16,7 @@ struct PrivGlobs {
     vector<REAL>        myX;        // [numX]
     vector<REAL>        myY;        // [numY]
     vector<REAL>        myTimeline; // [numT]
-    unsigned            myXindex;  
+    unsigned            myXindex;
     unsigned            myYindex;
 
     //	variable
@@ -65,11 +65,11 @@ struct PrivGlobs {
 } __attribute__ ((aligned (128)));
 
 
-void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t, 
-                const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs   
+void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
+                const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs
             );
 
-void initOperator(  const vector<REAL>& x, 
+void initOperator(  const vector<REAL>& x,
                     vector<vector<REAL> >& Dxx
                  );
 
@@ -91,27 +91,34 @@ void rollback( const unsigned g, PrivGlobs& globs );
 
 REAL   value(   PrivGlobs    globs,
                 const REAL s0,
-                const REAL strike, 
-                const REAL t, 
-                const REAL alpha, 
-                const REAL nu, 
+                const REAL strike,
+                const REAL t,
+                const REAL alpha,
+                const REAL nu,
                 const REAL beta,
                 const unsigned int numX,
                 const unsigned int numY,
                 const unsigned int numT
             );
 
-void run_OrigCPU(  
+void run_GPU(
                 const unsigned int&   outer,
                 const unsigned int&   numX,
                 const unsigned int&   numY,
                 const unsigned int&   numT,
                 const REAL&           s0,
-                const REAL&           t, 
-                const REAL&           alpha, 
-                const REAL&           nu, 
+                const REAL&           t,
+                const REAL&           alpha,
+                const REAL&           nu,
                 const REAL&           beta,
                       REAL*           res   // [outer] RESULT
             );
+
+
+//void transpose(REAL** MIn, REAL** MOut, int M, int N);
+void transpose(vector<vector<REAL> > MIn,
+               vector<vector<REAL> >* MOut,
+               unsigned int M,
+               unsigned int N);
 
 #endif // PROJ_HELPER_FUNS
