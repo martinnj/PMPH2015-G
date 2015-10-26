@@ -77,23 +77,23 @@ template<class T>
 class Add {
   public:
     typedef T BaseType;
-    static __device__ __host__ inline T identity()                    { return (T)0;    }
-    static __device__ __host__ inline T apply(const T t1, const T t2) { return t1 + t2; }
+    static  __host__ inline T identity()                    { return (T)0;    }
+    static  __host__ inline T apply(const T t1, const T t2) { return t1 + t2; }
 };
 
 class MyInt4 {
   public:
     int x; int y; int z; int w;
-    __device__ __host__ inline MyInt4() {
+     __host__ inline MyInt4() {
         x = 0; y = 0; z = 0; w = 0; 
     }
-    __device__ __host__ inline MyInt4(const int& a, const int& b, const int& c, const int& d) {
+     __host__ inline MyInt4(const int& a, const int& b, const int& c, const int& d) {
         x = a; y = b; z = c; w = d; 
     }
-    __device__ __host__ inline MyInt4(const MyInt4& i4) { 
+     __host__ inline MyInt4(const MyInt4& i4) { 
         x = i4.x; y = i4.y; z = i4.z; w = i4.w; 
     }
-    volatile __device__ __host__ inline MyInt4& operator=(const MyInt4& i4) volatile {
+    volatile  __host__ inline MyInt4& operator=(const MyInt4& i4) volatile {
         x = i4.x; y = i4.y; z = i4.z; w = i4.w; 
         return *this;
     }
@@ -102,8 +102,8 @@ class MyInt4 {
 class MsspOp {
   public:
     typedef MyInt4 BaseType;
-    static __device__ inline MyInt4 identity() { return MyInt4(0,0,0,0); }  
-    static __device__ inline MyInt4 apply(volatile MyInt4& t1, volatile MyInt4& t2) { 
+    static  inline MyInt4 identity() { return MyInt4(0,0,0,0); }  
+    static  inline MyInt4 apply(volatile MyInt4& t1, volatile MyInt4& t2) { 
         int mss = max(t1.x, max(t2.x,t1.z+t2.y));
         int mis = max(t1.y, t1.w+t2.y);
         int mcs = max(t2.z, t1.z+t2.w);
@@ -117,7 +117,7 @@ class MsspOp {
 /***************************************************/
 
 template<class OP, class T>
-__device__ inline
+ inline
 T scanIncWarp( volatile T* ptr, const unsigned int idx ) {
     const unsigned int lane = idx & 31;
 
@@ -133,7 +133,7 @@ T scanIncWarp( volatile T* ptr, const unsigned int idx ) {
 }
 
 template<class OP, class T>
-__device__ inline
+ inline
 T scanIncBlock(volatile T* ptr, const unsigned int idx) {
     const unsigned int lane   = idx &  31;
     const unsigned int warpid = idx >> 5;
@@ -211,7 +211,7 @@ shiftRightByOne(T* d_in, T* d_out, T ne, unsigned int d_size) {
 /*************************************************/
 /*************************************************/
 template<class OP, class T, class F>
-__device__ inline
+ inline
 T sgmScanIncWarp(volatile T* ptr, volatile F* flg, const unsigned int idx) {
     const unsigned int lane = idx & 31;
 
@@ -242,7 +242,7 @@ T sgmScanIncWarp(volatile T* ptr, volatile F* flg, const unsigned int idx) {
 }
 
 template<class OP, class T, class F>
-__device__ inline
+ inline
 T sgmScanIncBlock(volatile T* ptr, volatile F* flg, const unsigned int idx) {
     const unsigned int lane   = idx &  31;
     const unsigned int warpid = idx >> 5;

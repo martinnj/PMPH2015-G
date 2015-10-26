@@ -1,3 +1,85 @@
+
+class MyReal2 {
+  public:
+    REAL x; REAL y;
+
+      inline MyReal2() {
+        x = 0.0; y = 0.0;
+    }
+      inline MyReal2(const REAL& a, const REAL& b) {
+        x = a; y = b;
+    }
+      inline MyReal2(const MyReal2& i4) {
+        x = i4.x; y = i4.y;
+    }
+    volatile   inline MyReal2& operator=(const MyReal2& i4) volatile {
+        x = i4.x; y = i4.y;
+        return *this;
+    }
+      inline MyReal2& operator=(const MyReal2& i4) {
+        x = i4.x; y = i4.y;
+        return *this;
+    }
+};
+
+class MyReal4 {
+  public:
+    REAL x; REAL y; REAL z; REAL w;
+
+      inline MyReal4() {
+        x = 0.0; y = 0.0; z = 0.0; w = 0.0;
+    }
+      inline MyReal4(const REAL& a, const REAL& b, const REAL& c, const REAL& d) {
+        x = a; y = b; z = c; w = d;
+    }
+      inline MyReal4(const MyReal4& i4) {
+        x = i4.x; y = i4.y; z = i4.z; w = i4.w;
+    }
+    volatile   inline MyReal4& operator=(const MyReal4& i4) volatile {
+        x = i4.x; y = i4.y; z = i4.z; w = i4.w;
+        return *this;
+    }
+      inline MyReal4& operator=(const MyReal4& i4) {
+        x = i4.x; y = i4.y; z = i4.z; w = i4.w;
+        return *this;
+    }
+};
+
+class LinFunComp {
+  public:
+    typedef MyReal2 BaseType;
+
+    static   inline
+    MyReal2 apply(volatile MyReal2& a, volatile MyReal2& b) {
+      return MyReal2( b.x + b.y*a.x, a.y*b.y );
+    }
+
+    static   inline
+    MyReal2 identity() {
+      return MyReal2(0.0, 1.0);
+    }
+};
+
+class MatMult2b2 {
+  public:
+    typedef MyReal4 BaseType;
+
+    static   inline
+    MyReal4 apply(volatile MyReal4& a, volatile MyReal4& b) {
+      REAL val = 1.0/(a.x*b.x);
+      return MyReal4( (b.x*a.x + b.y*a.z)*val,
+                      (b.x*a.y + b.y*a.w)*val,
+                      (b.z*a.x + b.w*a.z)*val,
+                      (b.z*a.y + b.w*a.w)*val );
+    }
+
+    static   inline
+    MyReal4 identity() {
+      return MyReal4(1.0,  0.0, 0.0, 1.0);
+    }
+};
+
+
 template<class OP>
 void inplaceScanInc(const int n, typename OP::BaseType* inpres) {
   typename OP::BaseType acc = OP::identity();//inpres[0];
@@ -48,7 +130,7 @@ inline void tridagPar(
         u[i] = lfuns[i].x + y0*lfuns[i].y;
     }
     // y -> u
-#if 1
+//#if 1
     //----------------------------------------------------
     // Recurrence 3: backward recurrence solved via     --
     //             scan with linear func comp operator  --
@@ -64,8 +146,7 @@ inline void tridagPar(
         int k = n - i - 1;
         u[k] = lfuns[i].x + yn*lfuns[i].y;
     }
-#endif
+//#endif
     free(lfuns);
-    free(mats); 
+    free(mats);
 }
-
