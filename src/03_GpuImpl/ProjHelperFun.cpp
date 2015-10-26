@@ -99,3 +99,10 @@ void transpose(vector<vector<REAL> > MIn,
        }
    }
 }
+// row = row idx
+// col = col idx
+// width = number of columns in the matrix
+// ex: A[row,col] = A[idx2d(row, col, a.cols)]
+unsigned int idx2d(int row, int col, int width) {
+    return row * width + col;
+}
