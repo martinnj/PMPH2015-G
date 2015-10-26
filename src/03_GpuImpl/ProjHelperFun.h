@@ -87,11 +87,11 @@ struct PrivGlobs {
 
         this->myVarX = (REAL*) malloc(sizeof(REAL)*(numX*numY));
         this->myVarXRows = numX;
-        this->myVarXRows = numY;
+        this->myVarXCols = numY;
 
         this->myVarY = (REAL*) malloc(sizeof(REAL)*(numX*numY));
         this->myVarYRows = numX;
-        this->myVarYRows = numY;
+        this->myVarYCols = numY;
 
     }
 } __attribute__ ((aligned (128)));
