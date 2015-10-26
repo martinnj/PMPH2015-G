@@ -60,16 +60,42 @@ inline void tridag(
     uu[0] = b[0];
 
     // Can be parallelized by rewriting the loop into a series of scans on u and uu.
+
+    /*
     for(i=1; i<n; i++) { // seq
         beta  = a[i] / uu[i-1];
-        uu[i] = b[i] - beta*c[i-1];
-        u[i]  = r[i] - beta*u[i-1];
+        uu[i] = b[i] - beta*c[i-1]; // uu[i] = b[i] - (a[i] / uu[i-1])*c[i-1] = b[i] - a[i]*c[i-1] / uu[i-1]
+        u[i]  = r[i] - beta*u[i-1]; // u[i]  = r[i] - (a[i] / uu[i-1])*u[i-1]
+    }
+    */
+
+    /*
+    uu = - a*c
+    uu' = b*uu''[-1]
+
+    scanInc (/) head(uu)^2 uu
+    */
+    uu = vector<REAL>(b); //wrong
+    for(i=1; i<n; i++) {
+        uu[i] = uu[i] - a[i]*c[i-1];
+    }
+    scanIncDiv(uu[0]*uu[0], &uu); //id, array
+
+    /*
+    u = r
+    uu' = [0] ++ u //do same for uu.....
+    u = u - a / uu'
+    - (a[i] / uu[i-1])*u[i-1]
+
+    scanInc (*) 1 u
+    */
+    for(i=1; i<n; i++) {
+
     }
 
 #if 0
     // X) this is a backward recurrence
     u[n-1] = u[n-1] / uu[n-1];
-
 
     // Can be parallelized by rewriting the loop into a series of scans.
     for(i=n-2; i>=0; i--) { // seq
@@ -82,8 +108,11 @@ inline void tridag(
 
     a[0] = a[0] / uu[n-1];
 
+    // tridag can be re-written in terms of scans with 2x2 matrix multiplication and
+    // linear function composition, as we shall discuss in class.
     for(i=1; i<n; i++) // TODO: Make it a scan bro.
         a[i] = (a[i] - c[n-1-i]*a[i-1]) / uu[n-1-i];
+        //a[i] = (a[i] - c[n-1-i]*a[i-1]) / uu[n-1-i];
 
     for(i=0; i<n; i++) // TODO: par
         u[i] = a[n-1-i]; // u = reverse a
@@ -266,7 +295,7 @@ REAL   value(   PrivGlobs    globs,
     // If updateParams and rollback is independent on i and globs, loop can be
     // parallelized by privatization of initGrid, initOperator and setPayoff calls.
     // If they write indepedently to globs, privatization is not needed.
-    for(int i = globs.myTimeline.size()-2;i>=0;--i) // seq
+    for(int i = globs.myTimeline.size()-2;i>=0;--i) // seq, based on num_T indirectly.
     {
         updateParams(i,alpha,beta,nu,globs);
         rollback(i, globs);
