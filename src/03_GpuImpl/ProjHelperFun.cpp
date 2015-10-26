@@ -47,10 +47,9 @@ void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
  * Based on the values of x,
  * Where x's size is n.
  */
-void initOperator(  const REAL* &x,//vector<REAL>& x,
+void initOperator(  const REAL* x,//vector<REAL>& x,
                       unsigned  xSize,
-                          REAL* &Dxx,//vector<vector<REAL> >& Dxx
-                      unsigned  DxxRows,
+                          REAL* Dxx,//vector<vector<REAL> >& Dxx
                       unsigned  DxxCols
 ) {
 	const unsigned n = xSize;
@@ -91,10 +90,10 @@ void initOperator(  const REAL* &x,//vector<REAL>& x,
     Dxx[idx2d(n-1,3,DxxCols)] = 0.0;
 }
 
-void transpose(REAL* A, REAL* B, int M, int N) {
+void transpose(REAL* A, REAL** B, int M, int N) {
     for(int i = 0 ; i < M ; i++) {
         for(int j = 0 ; j < N ; j++) {
-            B[j*M+i] = A[i*N+j];
+            (*B)[j*M+i] = A[i*N+j];
         }
     }
 }

@@ -9,14 +9,14 @@ void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REA
     // Degree of parallelism: myX.size*myY.size
     // Access to myVarX and myVarY is already coalesced.
     // TODO: Examine how tiling/shared memory can be used.
-    for(unsigned i=0;i<globs.myX.size();++i) // par
-        for(unsigned j=0;j<globs.myY.size();++j) { // par
-            globs.myVarX[idx2d(i,j, globs.myVarXCols)] = 
+    for(unsigned i=0;i<globs.myXsize;++i) // par
+        for(unsigned j=0;j<globs.myYsize;++j) { // par
+            globs.myVarX[idx2d(i,j, globs.myVarXCols)] =
                                             exp(2.0*(  beta*log(globs.myX[i])
                                           + globs.myY[j]
                                           - 0.5*nu*nu*globs.myTimeline[g] )
                                     );
-            globs.myVarY[idx2d(i,j, globs.myVarXCols)] = 
+            globs.myVarY[idx2d(i,j, globs.myVarXCols)] =
                                             exp(2.0*(  alpha*log(globs.myX[i])
                                           + globs.myY[j]
                                           - 0.5*nu*nu*globs.myTimeline[g] )
@@ -37,21 +37,21 @@ void setPayoff(const REAL strike, PrivGlobs& globs )
     // 8192 vs 288 -- array expansion is preferable.
 
     // Array expansion **DONE.
-    REAL payoff[globs.myX.size()];
-    for(unsigned i=0;i<globs.myX.size();++i)
+    REAL payoff[globs.myXsize];
+    for(unsigned i=0;i<globs.myXsize;++i)
         payoff[i] = max(globs.myX[i]-strike, (REAL)0.0);
 
     // Already coalesced.
-	for(unsigned i=0;i<globs.myX.size();++i) { // par
-		for(unsigned j=0;j<globs.myY.size();++j) // par
+	for(unsigned i=0;i<globs.myXsize;++i) { // par
+		for(unsigned j=0;j<globs.myYsize;++j) // par
 			globs.myResult[idx2d(i,j, globs.myResultCols)] = payoff[i];
 	}
 }
 
 void
 rollback( const unsigned g, PrivGlobs& globs ) {
-    unsigned numX = globs.myX.size(),
-             numY = globs.myY.size();
+    unsigned numX = globs.myXsize,
+             numY = globs.myYsize;
 
     unsigned numZ = max(numX,numY);
 
@@ -88,8 +88,8 @@ rollback( const unsigned g, PrivGlobs& globs ) {
         for(j=0;j<numY;j++) { //par
             //TODO: This can be combined in the tridag kernel, in shared mem.
 
-            uT[idx2d(i,j,numY)] = dtInv*globs.myResult[idx2d(i,j, 
-                                                       lobs.myResultCols)];
+            uT[idx2d(i,j,numY)] = dtInv*globs.myResult[idx2d(i,j,
+                                                       globs.myResultCols)];
             REAL x = 0.5*0.5*globs.myVarX[idx2d(i,j, globs.myVarXCols)];
             if(i > 0) {
                 uT[idx2d(i,j,numY)] += x*globs.myDxx[idx2d(i,0,globs.myDxxCols)]
@@ -150,7 +150,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     REAL *bT = (REAL*) malloc(numZ*numY*sizeof(REAL));           // [numZ][numY]
     REAL *cT = (REAL*) malloc(numZ*numY*sizeof(REAL));           // [numZ][numY]
     //vector<vector<REAL> > aT(numZ, vector<REAL>(numY)), bT(numZ, vector<REAL>(numY)), cT(numZ, vector<REAL>(numY));
-    
+
     //	implicit x
     // ASSUMING tridag is independent.
     // parallelizable directly since all reads and writes are independent.
@@ -172,12 +172,12 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     for(i=0;i<numX;i++) {  // par // here a, b,c should have size [numX]
         for(j=0;j<numY;j++) { // par
             REAL x = 0.5*0.5*globs.myVarX[idx2d(i,j, globs.myVarXCols)];
-            aT[idx2d(i,j,numY)] = 
-                            - x*globs.myDxx[idx2d(i,0,globs.myDxxCols);
-            bT[idx2d(i,j,numY)] = dtInv 
-                            - x*globs.myDxx[idx2d(i,0,globs.myDxxCols);
-            cT[idx2d(i,j,numY)] = 
-                            - x*globs.myDxx[idx2d(i,0,globs.myDxxCols);
+            aT[idx2d(i,j,numY)] =
+                            - x*globs.myDxx[idx2d(i,0,globs.myDxxCols)];
+            bT[idx2d(i,j,numY)] = dtInv
+                            - x*globs.myDxx[idx2d(i,0,globs.myDxxCols)];
+            cT[idx2d(i,j,numY)] =
+                            - x*globs.myDxx[idx2d(i,0,globs.myDxxCols)];
         }
 
     }
@@ -188,7 +188,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     for(j=0;j<numY;j++) { // par
         // here yy should have size [numX]
 
-        tridagPar(&a[idx2d(j,0,numZ), &b[idx2d(j,0,numZ), &c[idx2d(j,0,numZ)
+        tridagPar(&a[idx2d(j,0,numZ)], &b[idx2d(j,0,numZ)], &c[idx2d(j,0,numZ)]
                  ,&u[idx2d(j,0,numX)],numX,&u[idx2d(j,0,numX)],&yy[0]);
     }
 
@@ -208,9 +208,9 @@ rollback( const unsigned g, PrivGlobs& globs ) {
             aT[idx2d(i,j,numY)] =       - y*globs.myDyy[idx2d(j,0,
                                                         globs.myDyyCols)];
             bT[idx2d(i,j,numY)] = dtInv - y*globs.myDyy[idx2d(j,1,
-                                                        globs.myDyyCols)]);
+                                                        globs.myDyyCols)];
             cT[idx2d(i,j,numY)] =		- y*globs.myDyy[idx2d(j,2,
-                                                        globs.myDyyCols)]);
+                                                        globs.myDyyCols)];
         }
     }
     transpose(aT, &a, numY, numZ);
@@ -224,7 +224,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     // Coalesced memory acces.
     for(i=0;i<numX;i++) { // par
         for(j=0;j<numY;j++) { // par
-            y[idx2d(i,j,numZ)] = dtInv * uT[idx2d(i,j,numY)] 
+            y[idx2d(i,j,numZ)] = dtInv * uT[idx2d(i,j,numY)]
                                - 0.5*v[idx2d(i,j,numY)];
         }
     }
@@ -233,7 +233,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     for(i=0;i<numX;i++) { // par
         // here yy should have size [numX]
 
-        tridagPar(&aT[idx2d(i,0,numY)], &bT[idx2d(i,0,numY)], 
+        tridagPar(&aT[idx2d(i,0,numY)], &bT[idx2d(i,0,numY)],
                   &cT[idx2d(i,0,numY)], &y[idx2d(i,0,numZ)], numY,
                   &globs.myResult[idx2d(i,0, globs.myResultCols)],&yy[0]);
     }
@@ -275,8 +275,8 @@ void   run_GPU( const unsigned int&   outer,
     for( unsigned i = 0; i < outer; ++ i ) { //par
             globs[i] = PrivGlobs(numX, numY, numT);
             initGrid(s0, alpha,nu,t, numX, numY, numT, globs[i]);
-            initOperator(globs[i].myX,globs[i].myDxx);
-            initOperator(globs[i].myY,globs[i].myDyy);
+            initOperator(globs[i].myX, globs[i].myXsize, globs[i].myDxx, globs[i].myDxxCols);
+            initOperator(globs[i].myY, globs[i].myYsize, globs[i].myDyy, globs[i].myDyyCols);
             setPayoff(0.001*i, globs[i]);
     }
 
@@ -292,7 +292,7 @@ void   run_GPU( const unsigned int&   outer,
     // parallel assignment of results.
     #pragma omp parallel for default(shared) schedule(static) if(outer>8)
     for( unsigned j = 0; j < outer; ++ j ) { //par
-        res[j] = globs[j].myResult[globs[j].myXindex][globs[j].myYindex];
+        res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,globs[j].myResultCols)];
     }
 }
 

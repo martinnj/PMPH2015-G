@@ -101,8 +101,8 @@ void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
                 const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs
             );
 
-void initOperator(  const vector<REAL>& x,
-                    vector<vector<REAL> >& Dxx
+void initOperator( const REAL* x, unsigned  xSize,
+                         REAL* Dxx, unsigned  DxxCols
                  );
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs);
@@ -148,10 +148,7 @@ void run_GPU(
 
 
 //void transpose(REAL** MIn, REAL** MOut, int M, int N);
-void transpose(vector<vector<REAL> > MIn,
-               vector<vector<REAL> >* MOut,
-               unsigned int M,
-               unsigned int N);
+void transpose(REAL* A, REAL** B, int M, int N);
 
 unsigned int idx2d(int row, int col, int width);
 

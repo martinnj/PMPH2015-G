@@ -16,7 +16,7 @@ default: clean gpu run_small
 	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
 
 .cu.o: $(SOURCES_CPP) $(HELPERS)
-	$(CXX) -c $@ $<
+	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c $@ $<
 
 gpu: $(EXECUTABLE)
 $(EXECUTABLE): $(OBJECTS)
