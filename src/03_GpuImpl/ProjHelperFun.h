@@ -13,17 +13,17 @@ using namespace std;
 struct PrivGlobs {
 
     //	grid
-    REAL*        myX;        // [numX]
-    unsigned     myXsize;
+    REAL*    myX;        // [numX]
+    unsigned myXsize;
 
-    *REAL        myY;        // [numY]
-    unsigned     myYsize;
+    *REAL    myY;        // [numY]
+    unsigned myYsize;
 
-    REAL*        myTimeline; // [numT]
-    unsigned     myTimelineSize;
+    REAL*    myTimeline; // [numT]
+    unsigned myTimelineSize;
 
-    unsigned            myXindex;
-    unsigned            myYindex;
+    unsigned myXindex;
+    unsigned myYindex;
 
     //	variable
     //vector<vector<REAL> > myResult; // [numX][numY]
