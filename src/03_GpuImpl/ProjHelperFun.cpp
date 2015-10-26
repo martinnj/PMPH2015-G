@@ -13,7 +13,8 @@
  *   globs.myXindex and globs.myYindex (both scalars)
  */
 void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
-                const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs
+                const unsigned numX, const unsigned numY, const unsigned numT, 
+                PrivGlobs& globs
 ) {
     // Can be parallelized directly as each iteration writes to independent
     // globs.myTimeline indices
@@ -47,9 +48,9 @@ void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
  * Based on the values of x,
  * Where x's size is n.
  */
-void initOperator(  const REAL* x,//vector<REAL>& x,
+void initOperator(        const REAL* x,    //vector<REAL>& x,
                       unsigned  xSize,
-                          REAL* Dxx,//vector<vector<REAL> >& Dxx
+                          REAL* Dxx,        //vector<vector<REAL> >& Dxx
                       unsigned  DxxCols
 ) {
 	const unsigned n = xSize;

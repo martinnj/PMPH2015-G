@@ -3,7 +3,8 @@
 
 #include "TridagPar.h"
 
-void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
+void updateParams(const unsigned g, const REAL alpha, const REAL beta, 
+                  const REAL nu, PrivGlobs& globs)
 {
     // parallelizable directly since all reads and writes are independent.
     // Degree of parallelism: myX.size*myY.size
@@ -187,7 +188,6 @@ rollback( const unsigned g, PrivGlobs& globs ) {
 
     for(j=0;j<numY;j++) { // par
         // here yy should have size [numX]
-
         tridagPar(&a[idx2d(j,0,numZ)], &b[idx2d(j,0,numZ)], &c[idx2d(j,0,numZ)]
                  ,&u[idx2d(j,0,numX)],numX,&u[idx2d(j,0,numX)],&yy[0]);
     }
@@ -268,15 +268,17 @@ void   run_GPU( const unsigned int&   outer,
                         numX,  numY,  numT );
     }*/
     // globs array expanded. Init moved to individual parallel loop
-    //vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
+    vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
     PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(PrivGlobs));
 
     #pragma omp parallel for default(shared) schedule(static) if(outer>8)
     for( unsigned i = 0; i < outer; ++ i ) { //par
             globs[i] = PrivGlobs(numX, numY, numT);
             initGrid(s0, alpha,nu,t, numX, numY, numT, globs[i]);
-            initOperator(globs[i].myX, globs[i].myXsize, globs[i].myDxx, globs[i].myDxxCols);
-            initOperator(globs[i].myY, globs[i].myYsize, globs[i].myDyy, globs[i].myDyyCols);
+            initOperator(globs[i].myX, globs[i].myXsize, globs[i].myDxx, 
+                         globs[i].myDxxCols);
+            initOperator(globs[i].myY, globs[i].myYsize, globs[i].myDyy, 
+                         globs[i].myDyyCols);
             setPayoff(0.001*i, globs[i]);
     }
 
@@ -292,7 +294,8 @@ void   run_GPU( const unsigned int&   outer,
     // parallel assignment of results.
     #pragma omp parallel for default(shared) schedule(static) if(outer>8)
     for( unsigned j = 0; j < outer; ++ j ) { //par
-        res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,globs[j].myResultCols)];
+        res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,
+                                   globs[j].myResultCols)];
     }
 }
 
