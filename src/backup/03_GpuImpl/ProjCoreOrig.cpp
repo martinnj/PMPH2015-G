@@ -204,7 +204,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
                          *  globs.myResult[idx2d(i,j, globs.myResultCols)];
             if(j < numY-1) {
               v[idx2d(i,j,numY)] +=  (y*globs.myDyy[idx2d(j,2,globs.myDxxCols)])
-                         *  globs.myResult[idx2d(i,j+j, globs.myResultCols)];
+                         *  globs.myResult[idx2d(i,j+1, globs.myResultCols)];
             }
             uT[idx2d(i,j,numY)] += v[idx2d(i,j,numY)];
         }
