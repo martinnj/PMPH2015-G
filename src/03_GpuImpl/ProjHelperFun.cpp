@@ -47,11 +47,11 @@ void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
  * Based on the values of x,
  * Where x's size is n.
  */
-void initOperator(  const REAL &x,//vector<REAL>& x,
-                      unsigned xSize,
-                          REAL &Dxx,//vector<vector<REAL> >& Dxx
-                      unsigned DxxRows,
-                      unsigned DxxCols
+void initOperator(  const REAL* &x,//vector<REAL>& x,
+                      unsigned  xSize,
+                          REAL* &Dxx,//vector<vector<REAL> >& Dxx
+                      unsigned  DxxRows,
+                      unsigned  DxxCols
 ) {
 	const unsigned n = xSize;
 

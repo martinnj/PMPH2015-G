@@ -16,7 +16,7 @@ struct PrivGlobs {
     REAL*    myX;        // [numX]
     unsigned myXsize;
 
-    *REAL    myY;        // [numY]
+    REAL*    myY;        // [numY]
     unsigned myYsize;
 
     REAL*    myTimeline; // [numT]
