@@ -148,6 +148,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     // TODO: Coalesced access via matrix transposition of u/uT. **DONE
     for(i=0;i<numX;i++) { //par
         for(j=0;j<numY;j++) { //par
+            //TODO: This can be combined in the tridag kernel, in shared mem.
             uT[i][j] = dtInv*globs.myResult[i][j];
 
             if(i > 0) {
@@ -182,6 +183,7 @@ rollback( const unsigned g, PrivGlobs& globs ) {
     // can be avoided in transposition).
     for(i=0;i<numX;i++) { //par
         for(j=0;j<numY;j++) { //par
+            //TODO: This can be combined in the tridag kernel too, as parameters.
             v[i][j] = 0.0;
 
             if(j > 0) {

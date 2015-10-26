@@ -1,0 +1,68 @@
+L5 for high level solution sequential and parallel tridag, page 43
+
+
+write in report why it is safe to distribute (beta-loop) (proof):
+
+for(i=1; i < n; i++)
+    u[i] = alpha[i] + b[i]/u[i-1]
+--2x2 matrix mul scan
+
+
+for(i=1; i<n; i++)
+    y[i] = gammapi] + delta[i] * y[i-1]
+--linear fun comp scan
+
+see page 45
+
+
+
+
+How to (high level view, see given parallel tridag where it is done) deal with first loop above:
+recurrence u:
+u[0] = alpha[0]
+u[i] = alpha[i] + beta[i]/u[i-1]
+
+division is problem.
+change variable.
+u[i] = q[i+1]/q[i]
+then
+u[0] = q[1]/q[0] = alpha/1 = alpha
+
+q[i-1]/q[i] = alpha[i] + b[i]/q[i]/q[i-1] = alpha[i] + b[i]*q[i-1]/q[i]
+= q[i-1] = alpha[i]*q[i] + b[i]*q[i-1]
+
+q[i] = 1*q[i] + 0*q[i-1]
+look like vector
+array multiplied by q[i] and q[i-1]
+
+vectors: (1)
+q[i-1]      q[i] b[i]       q[i]
+        =               * 
+q[i]        10   00         q[i-1]
+
+
+scan of matrix multiplication: (2)
+alpha[n]    Beta[n]   *  alpha[n-1]    Beta[n-1]   *  ... * alpha[1] beta[1]    * q[1]
+10          00           10          00                     10       00         * q[0]
+                <----------------------------------------------------------------
+after scan (3)
+m[i] =  q[i+1]  =m[i] * q[1]
+        q[i]            q[0]
+
+u[i] = q[i-1]/q[i]
+
+
+
+first crate map (1)
+then scan       (2)
+then map        (3)
+
+
+This was first recursion, second part is 
+for(i=1; i<n; i++)
+    y[i] = gammapi] + delta[i] * y[i-1]
+--linear fun comp scan
+
+How to:
+
+see written notes and picture of black board
