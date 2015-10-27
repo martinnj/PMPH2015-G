@@ -117,3 +117,12 @@ void transpose(REAL* A, REAL** B, int M, int N) {
 unsigned int idx2d(int row, int col, int width) {
     return row * width + col;
 }
+
+//assumes same size
+void flatMatTo2dVect(REAL* flatMat, vector<vector<REAL> > v, int rows, int cols){
+    for(unsigned i=0; i < rows; i++){
+        for(unsigned j=0; j < cols; j++){
+            v[i][j] = flatMat[idx2d(i,j,cols)];
+        }
+    }
+}
