@@ -1,26 +1,26 @@
-CXX        = g++
-CXXFLAGS   = -fopenmp -O3 -DWITH_FLOATS=0
+CXX        = nvcc
+CXXFLAGS   = -O3 -DWITH_FLOATS=0
 
 INCLUDES  += -I ../include
 GPU_OPTS   = -D lgWARP=5
 
-SOURCES_CPP =ProjectMain.cpp ProjHelperFun.cpp ProjCoreOrig.cpp
-HELPERS     =ProhHelperFun.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/OpenmpUtil.h ../include/TridagPar.h ../include/TridagKernel.cu.h
-OBJECTS     =ProjectMain.o ProjHelperFun.o  ProjCoreOrig.o
+SOURCES_CPP =ProjectMain.cu ProjHelperFun.cu ProjCoreOrig.cu
+HELPERS     =ProhHelperFun.cu.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/TridagPar.h ../include/TridagKernel.cu.h
+#OBJECTS     =ProjectMain.cu.o ProjHelperFun.cu.o  ProjCoreOrig.cu.o
 EXECUTABLE  =runproject
 
 
 default: clean gpu run_small
 
-.cpp.o: $(SOURCES_CPP) $(HELPERS)
-	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
+#.cpp.o: $(SOURCES_CPP) $(HELPERS)
+#	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
 
-.cu.o: $(SOURCES_CPP) $(HELPERS)
-	$(CXX) -c $@ $<
+#.cu.o: $(SOURCES_CPP) $(HELPERS)
+#	$(CXX) $(CXXFLAGS) $(GPU_OPTS) $(INCLUDES) -c -o $@ $<
 
 gpu: $(EXECUTABLE)
-$(EXECUTABLE): $(OBJECTS)
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(EXECUTABLE) $(OBJECTS)
+$(EXECUTABLE):
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $(EXECUTABLE) $(SOURCES_CPP)
 
 
 run_small: $(EXECUTABLE)
@@ -33,4 +33,4 @@ run_large: $(EXECUTABLE)
 	cat ../Data/Large/input.data ../Data/Large/output.data | ./$(EXECUTABLE) 2> Debug.txt
 
 clean:
-	rm -f Debug.txt $(EXECUTABLE) $(OBJECTS)
+	rm -f Debug.txt $(EXECUTABLE)

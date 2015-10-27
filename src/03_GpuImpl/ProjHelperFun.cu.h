@@ -67,33 +67,33 @@ struct PrivGlobsCuda {
                    const unsigned int& numT ) {
         //this->  myX.resize(numX);
         //this->myX = (REAL*) malloc(sizeof(REAL)*numX);
-        CudaMalloc((void**) &(this->myX) ,sizeof(REAL)*numX);
+        cudaMalloc((void**) &(this->myX) ,sizeof(REAL)*numX);
         this->myXsize = numX;
         // this->myDxx.resize(numX);
         // for(int k=0; k<numX; k++) {
         //     this->myDxx[k].resize(4);
         // }
         //this->myDxx.resize(numX*4);
-        CudaMalloc((void**) &(this->myDxx) ,sizeof(REAL)*numX*4);
+        cudaMalloc((void**) &(this->myDxx) ,sizeof(REAL)*numX*4);
         this->myDxxRows = numX;
         this->myDxxCols = 4;
 
         //this->  myY.resize(numY);
         //this->myY = (REAL*) malloc(sizeof(REAL)*numY);
-        CudaMalloc((void**) &(this->myY) ,sizeof(REAL)*numY);
+        cudaMalloc((void**) &(this->myY) ,sizeof(REAL)*numY);
         this->myYsize = numY;
         // this->myDyy.resize(numY);
         // for(int k=0; k<numY; k++) {
         //     this->myDyy[k].resize(4);
         // }
         //this->myDyy.resize(numY*4);
-        CudaMalloc((void**) &(this->myDyy) ,sizeof(REAL)*numY*4);
+        cudaMalloc((void**) &(this->myDyy) ,sizeof(REAL)*numY*4);
         this->myDyyRows = numY;
         this->myDyyCols = 4;
 
         //this->myTimeline.resize(numT);
         //this->myTimeline = (REAL*) malloc(sizeof(REAL)*numT);
-        CudaMalloc((void**) &(this->myTimeline) ,sizeof(REAL)*numT);
+        cudaMalloc((void**) &(this->myTimeline) ,sizeof(REAL)*numT);
         this->myTimelineSize = numT;
 
         //this->  myVarX.resize(numX);
@@ -105,17 +105,17 @@ struct PrivGlobsCuda {
             //this->myResult[i].resize(numY);
         //}
         //this->myVarX.resize(numX*numY);
-        CudaMalloc((void**) &(this->myVarX) ,sizeof(REAL)*numX*numY);
+        cudaMalloc((void**) &(this->myVarX) ,sizeof(REAL)*numX*numY);
         this->myVarXRows = numX;
         this->myVarXCols = numY;
 
         //this->myVarY.resize(numX*numY);
-        CudaMalloc((void**) &(this->myVarY) ,sizeof(REAL)*numX*numY);
+        cudaMalloc((void**) &(this->myVarY) ,sizeof(REAL)*numX*numY);
         this->myVarYRows = numX;
         this->myVarYCols = numY;
 
         //this->myResult.resize(numX*numY);
-        CudaMalloc((void**) &(this->myResult) ,sizeof(REAL)*numX*numY);
+        cudaMalloc((void**) &(this->myResult) ,sizeof(REAL)*numX*numY);
         this->myResultRows = numX;
         this->myResultCols = numY;
 
@@ -125,44 +125,22 @@ struct PrivGlobsCuda {
 struct PrivGlobs {
 
     //  grid
-    //vector<REAL>        myX;        // [numX]
-    //vector<REAL>        myY;        // [numY]
-    //vector<REAL>        myTimeline; // [numT]
-    REAL* myX;
-    unsigned myXsize;
-    REAL* myY;
-    unsigned myYsize;
-    REAL* myTimeline;
-    unsigned myTimelineSize;
-
-    unsigned            myXindex;
+    vector<REAL>        myX;        // [numX]
+    vector<REAL>        myY;        // [numY]
+    vector<REAL>        myTimeline; // [numT]
+    unsigned            myXindex;  
     unsigned            myYindex;
 
     //  variable
-    //vector<vector<REAL> > myResult; // [numX][numY]
-    vector<REAL> myResult;
-    unsigned myResultRows;
-    unsigned myResultCols;
+    vector<vector<REAL> > myResult; // [numX][numY]
 
     //  coeffs
-    //vector<vector<REAL> >   myVarX; // [numX][numY]
-    //vector<vector<REAL> >   myVarY; // [numX][numY]
-    vector<REAL> myVarX;
-    unsigned myVarXRows;
-    unsigned myVarXCols;
-    vector<REAL> myVarY;
-    unsigned myVarYRows;
-    unsigned myVarYCols;
+    vector<vector<REAL> >   myVarX; // [numX][numY]
+    vector<vector<REAL> >   myVarY; // [numX][numY]
 
     //  operators
-    //vector<vector<REAL> >   myDxx;  // [numX][4]
-    //vector<vector<REAL> >   myDyy;  // [numY][4]
-    vector<REAL> myDxx;
-    unsigned myDxxRows;
-    unsigned myDxxCols;
-    vector<REAL> myDyy;
-    unsigned myDyyRows;
-    unsigned myDyyCols;
+    vector<vector<REAL> >   myDxx;  // [numX][4]
+    vector<vector<REAL> >   myDyy;  // [numY][4]
 
     PrivGlobs( ) {
         printf("Invalid Contructor: need to provide the array sizes! EXITING...!\n");
@@ -172,54 +150,67 @@ struct PrivGlobs {
     PrivGlobs(  const unsigned int& numX,
                 const unsigned int& numY,
                 const unsigned int& numT ) {
-        //this->  myX.resize(numX);
-        this->myX = (REAL*) malloc(sizeof(REAL)*numX);
-        this->myXsize = numX;
-        // this->myDxx.resize(numX);
-        // for(int k=0; k<numX; k++) {
-        //     this->myDxx[k].resize(4);
-        // }
-        this->myDxx.resize(numX*4);
-        this->myDxxRows = numX;
-        this->myDxxCols = 4;
+        this->  myX.resize(numX);
+        this->myDxx.resize(numX);
+        for(int k=0; k<numX; k++) {
+            this->myDxx[k].resize(4);
+        }
 
-        //this->  myY.resize(numY);
-        this->myY = (REAL*) malloc(sizeof(REAL)*numY);
-        this->myYsize = numY;
-        // this->myDyy.resize(numY);
-        // for(int k=0; k<numY; k++) {
-        //     this->myDyy[k].resize(4);
-        // }
-        this->myDyy.resize(numY*4);
-        this->myDyyRows = numY;
-        this->myDyyCols = 4;
+        this->  myY.resize(numY);
+        this->myDyy.resize(numY);
+        for(int k=0; k<numY; k++) {
+            this->myDyy[k].resize(4);
+        }
 
-        //this->myTimeline.resize(numT);
-        this->myTimeline = (REAL*) malloc(sizeof(REAL)*numT);
-        this->myTimelineSize = numT;
+        this->myTimeline.resize(numT);
 
-        //this->  myVarX.resize(numX);
-        //this->  myVarY.resize(numX);
-        //this->myResult.resize(numX);
-        //for(unsigned i=0;i<numX;++i) {
-            //this->  myVarX[i].resize(numY);
-            //this->  myVarY[i].resize(numY);
-            //this->myResult[i].resize(numY);
-        //}
-        this->myVarX.resize(numX*numY);
-        this->myVarXRows = numX;
-        this->myVarXCols = numY;
-
-        this->myVarY.resize(numX*numY);
-        this->myVarYRows = numX;
-        this->myVarYCols = numY;
-
-        this->myResult.resize(numX*numY);
-        this->myResultRows = numX;
-        this->myResultCols = numY;
+        this->  myVarX.resize(numX);
+        this->  myVarY.resize(numX);
+        this->myResult.resize(numX);
+        for(unsigned i=0;i<numX;++i) {
+            this->  myVarX[i].resize(numY);
+            this->  myVarY[i].resize(numY);
+            this->myResult[i].resize(numY);
+        }
 
     }
-};
+} __attribute__ ((aligned (128)));
+
+
+void CopyDevicePrivGlobsToHost(PrivGlobsCuda *d_globs, PrivGlobs *globs) {
+    size_t rSize = sizeof(REAL);
+    cudaMemcpy(globs->myX, d_globs->myX, rSize*d_globs.myXsize, cudaMemcpyDeviceToHost);
+    globs.myXsize = d_globs.myXsize;
+
+    cudaMemcpy(globs.myY, d_globs.myY, rSize*d_globs.myYsize, cudaMemcpyDeviceToHost);
+    globs.myYsize = d_globs.myYsize;
+
+    cudaMemcpy(globs.myTimeline, d_globs.myTimeline, rSize*d_globs.myTimelineSize, cudaMemcpyDeviceToHost);
+    globs.myTimelineSize = d_globs.myTimelineSize;
+
+    globs.myXindex = d_globs.myXindex;
+    globs.myYindex = d_globs.myYindex;
+
+    cudaMemcpy(globs.myResult, d_globs.myResult, rSize*d_globs.myResultRows*d_globs.myResultCols, cudaMemcpyDeviceToHost);
+    globs.myResultRows = d_globs.myResultRows;
+    globs.myResultCols = d_globs.myResultCols;
+
+    cudaMemcpy(globs.myVarX, d_globs.myVarX, rSize*d_globs.myVarXRows*d_globs.myVarXCols, cudaMemcpyDeviceToHost);
+    globs.myVarXRows = d_globs.myVarXRows;
+    globs.myVarXCols = d_globs.myVarXCols;
+
+    cudaMemcpy(globs.myVarY, d_globs.myVarY, rSize*d_globs.myVarYRows*d_globs.myVarYCols, cudaMemcpyDeviceToHost);
+    globs.myVarYRows = d_globs.myVarYRows;
+    globs.myVarYCols = d_globs.myVarYCols;
+
+    cudaMemcpy(globs.myDxx, d_globs.myDxx, rSize*d_globs.myDxxRows*d_globs.myDxxCols, cudaMemcpyDeviceToHost);
+    globs.myDxxRows = d_globs.myDxxRows;
+    globs.myDxxCols = d_globs.myDxxCols;
+
+    cudaMemcpy(globs.myDyy, d_globs.myDyy, rSize*d_globs.myDyyRows*d_globs.myDyyCols, cudaMemcpyDeviceToHost);
+    globs.myDyyRows = d_globs.myDyyRows;
+    globs.myDyyCols = d_globs.myDyyCols;
+}
 
 
 /*

@@ -1,6 +1,5 @@
-#include "OpenmpUtil.h"
 #include "ParseInput.h"
-#include "ProjHelperFun.h"
+#include "ProjHelperFun.cu.h"
 
 int main()
 {
@@ -9,7 +8,7 @@ int main()
 
     readDataSet( OUTER_LOOP_COUNT, NUM_X, NUM_Y, NUM_T );
 
-    const int Ps = get_CPU_num_threads();
+    //const int Ps = get_CPU_num_threads();
     REAL* res = (REAL*)malloc(OUTER_LOOP_COUNT*sizeof(REAL));
 
     {   // Original Program (Sequential CPU Execution)
@@ -28,7 +27,7 @@ int main()
         // validation and writeback of the result
         bool is_valid = validate   ( res, OUTER_LOOP_COUNT );
         writeStatsAndResult( is_valid, res, OUTER_LOOP_COUNT,
-                             NUM_X, NUM_Y, NUM_T, false, Ps, elapsed );
+                             NUM_X, NUM_Y, NUM_T, false, 1, elapsed );
     }
 
     return 0;

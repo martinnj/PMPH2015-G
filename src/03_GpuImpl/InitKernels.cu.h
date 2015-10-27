@@ -2,7 +2,7 @@
 #define INIT_KERS
 
 #include <cuda_runtime.h>
-#include "ProjHelperFun.h"
+#include "ProjHelperFun.cu.h"
 #include "Constants.h"
 
 void FKernelInitGrid( int index,
@@ -34,8 +34,8 @@ void FKernelInitOperator(int index, const unsigned n, REAL* x, REAL* Dxx,
         Dxx[idx2d(n-1, 3, DxxCols)] = 0.0;
     }
     if(0 < index && index < n-1){
-        dxl      = x[index]   - x[index-1];
-        dxu      = x[index+1] - x[index];
+        REAL dxl      = x[index]   - x[index-1];
+        REAL dxu      = x[index+1] - x[index];
         
         Dxx[idx2d(index, 0, DxxCols)] =  2.0/dxl/(dxl+dxu);
         Dxx[idx2d(index, 1, DxxCols)] = -2.0*(1.0/dxl + 1.0/dxu)/(dxl+dxu);
@@ -44,7 +44,7 @@ void FKernelInitOperator(int index, const unsigned n, REAL* x, REAL* Dxx,
     }
 }
 
-void FKernelSetPayoff(int j, int k, const REAL strike, PrivGlobsCuda& globs){
+void FKernelSetPayoff(int j, int k, const REAL strike, PrivGlobsCuda& globs, REAL* payoff){
     unsigned xSize = globs.myXsize;
     if(j < globs.myXsize)
         payoff[j] = max(globs.myX[j]-strike, (REAL)0.0);
@@ -61,7 +61,7 @@ void FKernelSetPayoff(int j, int k, const REAL strike, PrivGlobsCuda& globs){
 __global__ void kernelInit(
     PrivGlobsCuda* globsList, const unsigned numX, const unsigned numY, 
     const unsigned numT, const REAL t, const REAL dx, const REAL dy, 
-    const REAL logAlpha, const REAL s0, REAL* payoff
+    const REAL logAlpha, const REAL s0, REAL* payoff, const unsigned outer
 ){
 /*
 for( unsigned i = 0; i < outer; ++ i ) {
@@ -71,9 +71,6 @@ for( unsigned i = 0; i < outer; ++ i ) {
     setPayoff(0.001*i, globs[i]); //2 dim
 }
 */
-    PrivGlobsCuda globs = globsList[i];
-    const unsigned n;
-
     int ii = blockIdx.x * blockDim.x;
     int jj = blockIdx.y * blockDim.y;
     int kk = blockIdx.z * blockDim.z;
@@ -87,6 +84,9 @@ for( unsigned i = 0; i < outer; ++ i ) {
     if(i >= outer)
         return;
 
+    PrivGlobsCuda globs = globsList[i];
+    unsigned n;
+
     REAL strike = 0.001*i;
     if(k == 0) {//initGrid
         globs.myXindex = static_cast<unsigned>(s0/dx) % numX;
@@ -98,17 +98,17 @@ for( unsigned i = 0; i < outer; ++ i ) {
         REAL* x = globs.myX;     //1d
         REAL* Dxx = globs.myDxx; //2d
         n = globs.myXsize;
-        FKernelInitOperator(j, n, x, Dxx);
+        FKernelInitOperator(j, n, x, Dxx, globs.myDxxCols);
     }
     if(k == 0){//initOperator myY
-        Real* y = globs.myY;     //1d
+        REAL* y = globs.myY;     //1d
         REAL* Dyy = globs.myDyy; //2d
-        const unsigned n = globs.myYsize;
-        FKernelInitOperator(j, n, y, Dyy);
+        n = globs.myYsize;
+        FKernelInitOperator(j, n, y, Dyy, globs.myDyyCols);
     }
     //__syncthreads(); //Prolly not needed here
     //setPayoff
-    FKernelSetPayoff(j, k, strike, globs);
+    FKernelSetPayoff(j, k, strike, globs, payoff);
 }
 
 
@@ -123,7 +123,7 @@ __global__ void constructGlobs(PrivGlobsCuda* globs, const unsigned outer,
 
 
 
-void init(PrivGlobsCuda& globsList, const unsigned outer, const REAL s0, 
+void init(PrivGlobsCuda* globsList, const unsigned outer, const REAL s0, 
           const REAL alpha, const REAL nu, const REAL t, const unsigned numX, 
           const unsigned numY, const unsigned numT
 ){
@@ -155,7 +155,7 @@ void init(PrivGlobsCuda& globsList, const unsigned outer, const REAL s0,
         dim3 block(T,T,T), grid(dimx,dimy,dimz); 
 
         kernelInit<<< grid, block>>>(globsList, numX, numY, numT, t, dx, dy, 
-                                     logAlpha, s0, payoff);
+                                     logAlpha, s0, payoff, outer);
         cudaThreadSynchronize();
 
         cudaFree(payoff);

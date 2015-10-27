@@ -1,4 +1,4 @@
-#include "ProjHelperFun.h"
+#include "ProjHelperFun.cu.h"
 #include "Constants.h"
 #include "InitKernels.cu.h"
 
@@ -329,7 +329,7 @@ void   run_GPU(
     //vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
         // globs array expanded. Init moved to individual parallel loop
     //vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
-    //PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
+    PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
 
     PrivGlobsCuda* globsList;
     cudaMalloc((void**)&globsList, outer*sizeof(struct PrivGlobsCuda));
@@ -343,6 +343,9 @@ void   run_GPU(
 */
     init(globsList, outer, s0, alpha, nu, t, numX, numY, numT);
     //TODO convert to PrivGlobs.
+
+    for(unsigned i = 0 ; i < outer ; i++)
+        CopyDevicePrivGlobsToHost(globsList[i], globs[i]);
 
     // sequential loop distributed.
     for(int i = numT-2;i>=0;--i){ //seq
