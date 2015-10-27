@@ -11,17 +11,8 @@ using namespace std;
 
 struct PrivGlobs {
 
-<<<<<<< HEAD
-    //  grid
+     //  grid
     vector<REAL>        myX;        // [numX]
-=======
-    //	grid
-    //vector<REAL>        myX;        // [numX]
-    REAL*    myX;
-    unsigned myXsize;
-
-
->>>>>>> c117f84a56405f135ed90e1d34e02a6bf2beffd6
     vector<REAL>        myY;        // [numY]
     vector<REAL>        myTimeline; // [numT]
     unsigned            myXindex;
@@ -46,9 +37,7 @@ struct PrivGlobs {
     PrivGlobs(  const unsigned int& numX,
                 const unsigned int& numY,
                 const unsigned int& numT ) {
-        //this->  myX.resize(numX);
-        this->myX = (REAL*) malloc(sizeof(REAL)*numX);
-        this->myXsize = numX;
+        this->  myX.resize(numX);
 
         this->myDxx.resize(numX);
         for(int k=0; k<numX; k++) {
@@ -168,7 +157,7 @@ void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
                 const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs
             );
 
-void initOperator(  const REAL* x, unsigned xsize,
+void initOperator(  const vector<REAL>& x,
                     vector<vector<REAL> >& Dxx
                  );
 
