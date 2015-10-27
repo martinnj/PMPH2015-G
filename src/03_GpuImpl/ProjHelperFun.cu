@@ -126,3 +126,13 @@ void flatMatTo2dVect(REAL* flatMat, vector<vector<REAL> > v, int rows, int cols)
         }
     }
 }
+
+template <typename T, size_t N>
+T* begin(T(&arr)[N]) { return &arr[0]; }
+template <typename T, size_t N>
+T* end(T(&arr)[N]) { return &arr[0]+N; }
+/*
+ussage:
+int vv[] = { 12,43 };
+std::vector<int> v(begin(vv), end(vv));
+*/
