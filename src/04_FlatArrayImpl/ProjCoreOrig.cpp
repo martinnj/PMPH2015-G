@@ -3,8 +3,8 @@
 
 #include "TridagPar.h"
 
-void printMatrix(REAL* matrix, unsigned int rows, unsigned int cols){
-    printf("Matrix = \n[\n");
+void printFlatMatrix(REAL* matrix, unsigned int rows, unsigned int cols){
+    printf("Matrix[%d,%d] = \n[\n", rows, cols);
     for(unsigned int i=0; i< rows; ++i){
         printf("[");
         for(unsigned int j=0; j< cols; ++j){
@@ -13,6 +13,16 @@ void printMatrix(REAL* matrix, unsigned int rows, unsigned int cols){
         printf("]\n");
     }
     printf("]\n");
+}
+
+void printVectMatrix(vector<REAL> matrix, unsigned int rows, unsigned int cols){
+    printf("Matrix[%d,%d] = \n", rows, cols);
+    for(unsigned int i=0; i< rows; ++i){
+        for(unsigned int j=0; j< cols; ++j){
+            printf("[%d] = %.5f \n",i*cols+j, matrix[i*cols+j]);
+        }
+    }
+    printf("\n");
 }
 
 void updateParams(const unsigned g, const REAL alpha, const REAL beta, const REAL nu, PrivGlobs& globs)
@@ -327,8 +337,12 @@ void   run_GPU(
     // globs array expanded. Init moved to individual parallel loop
     //vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
         // globs array expanded. Init moved to individual parallel loop
-    vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
-    //PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
+    //vector<PrivGlobs> globs(outer, PrivGlobs(numX, numY, numT));
+    PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
+    #pragma omp parallel for default(shared) schedule(static) if(outer>8)
+    for(int i = 0 ; i < outer ; i++) {
+        globs[i] = PrivGlobs(numX,numY,numT);
+    }
 
     #pragma omp parallel for default(shared) schedule(static) if(outer>8)
     for( unsigned i = 0; i < outer; ++ i ) { //par
@@ -337,6 +351,11 @@ void   run_GPU(
             initOperator(globs[i].myY, globs[i].myYsize, globs[i].myDyy, globs[i].myDyyCols);
             setPayoff(0.001*i, globs[i]);
     }
+
+
+    //printFlatMatrix(globs[0].myX, 32, 1);
+    //printVectMatrix(globs[0].myDxx, 32, 4);
+    //printFlatMatrix(globs[0].myDxx, 32, 4);
 
     // sequential loop distributed.
     for(int i = numT-2;i>=0;--i){ //seq
