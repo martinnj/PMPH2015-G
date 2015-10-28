@@ -13,7 +13,8 @@
  *   globs.myXindex and globs.myYindex (both scalars)
  */
 void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
-                const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs
+                const unsigned numX, const unsigned numY, const unsigned numT, 
+                PrivGlobs& globs
 ) {
     // Can be parallelized directly as each iteration writes to independent
     // globs.myTimeline indices
@@ -101,6 +102,7 @@ void transposeVect(vector<vector<REAL> > MIn,
    }
 }
 
+/*
 void transpose(REAL* A, REAL** B, int M, int N) {
     for(int i = 0 ; i < M ; i++) {
         for(int j = 0 ; j < N ; j++) {
@@ -108,6 +110,29 @@ void transpose(REAL* A, REAL** B, int M, int N) {
             (*B)[i*N+j] = A[j*M+i];
         }
     }
+}*/
+
+
+///////////// GIVEN CODE FROM SLIDES project.pdf p 17. /////////////
+///////////// assumes z is the outer dim and all matrices are same dims.
+template <int T>
+__global__ void transpose3dTiled(REAL* A, REAL* trA, int rowsA, int colsA ) {
+    __shared__ REAL tile[T][T+1];
+
+    int gidz=blockIdx.z*blockDim.z*threadIdx.z;
+    A+=gidz*rowsA*colsA; trA+=gidz*rowsA*colsA;
+
+    // follows code for matrix transp in x & y
+    int tidx = threadIdx.x, tidy = threadIdx.y;
+    int j=blockIdx.x*T+tidx,i=blockIdx.y*T+tidy;
+
+    if( j < colsA && i < rowsA )
+        tile[tidy][tidx] = A[i*colsA+j];
+    __syncthreads();
+
+    i=blockIdx.y*T+tidx; j=blockIdx.x*T+tidy;
+    if( j < colsA && i < rowsA )
+        trA[j*rowsA+i] = C. tile[tidx][tidy];
 }
 
 // row = row idx
@@ -116,6 +141,13 @@ void transpose(REAL* A, REAL** B, int M, int N) {
 // ex: A[row,col] = A[idx2d(row, col, a.cols)]
 unsigned int idx2d(int row, int col, int width) {
     return row * width + col;
+}
+
+//lenght = rows
+//width = cols
+unsigned int idx3d(int row, int col, int z, int length, int width) {
+    return z*length*width + idx2d(row, col, width);
+    //gidz*rowsA*colsA;
 }
 
 //assumes same size
