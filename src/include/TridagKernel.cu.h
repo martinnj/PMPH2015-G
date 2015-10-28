@@ -9,20 +9,20 @@ class MyReal2 {
   public:
     REAL x; REAL y;
 
-     __host__ inline MyReal2() {
+     __device__ __host__ inline MyReal2() {
         x = 0.0; y = 0.0;
     }
-     __host__ inline MyReal2(const REAL& a, const REAL& b) {
+     __device__ __host__ inline MyReal2(const REAL& a, const REAL& b) {
         x = a; y = b;
     }
-     __host__ inline MyReal2(const MyReal2& i4) {
+     __device__ __host__ inline MyReal2(const MyReal2& i4) {
         x = i4.x; y = i4.y;
     }
-    volatile  __host__ inline MyReal2& operator=(const MyReal2& i4) volatile {
+    volatile  __device__ __host__ inline MyReal2& operator=(const MyReal2& i4) volatile {
         x = i4.x; y = i4.y;
         return *this;
     }
-     __host__ inline MyReal2& operator=(const MyReal2& i4) {
+     __device__ __host__ inline MyReal2& operator=(const MyReal2& i4) {
         x = i4.x; y = i4.y;
         return *this;
     }
@@ -32,20 +32,20 @@ class MyReal4 {
   public:
     REAL x; REAL y; REAL z; REAL w;
 
-     __host__ inline MyReal4() {
+     __device__ __host__ inline MyReal4() {
         x = 0.0; y = 0.0; z = 0.0; w = 0.0;
     }
-     __host__ inline MyReal4(const REAL& a, const REAL& b, const REAL& c, const REAL& d) {
+     __device__ __host__ inline MyReal4(const REAL& a, const REAL& b, const REAL& c, const REAL& d) {
         x = a; y = b; z = c; w = d;
     }
-     __host__ inline MyReal4(const MyReal4& i4) {
+     __device__ __host__ inline MyReal4(const MyReal4& i4) {
         x = i4.x; y = i4.y; z = i4.z; w = i4.w;
     }
-    volatile  __host__ inline MyReal4& operator=(const MyReal4& i4) volatile {
+    volatile  __device__ __host__ inline MyReal4& operator=(const MyReal4& i4) volatile {
         x = i4.x; y = i4.y; z = i4.z; w = i4.w;
         return *this;
     }
-     __host__ inline MyReal4& operator=(const MyReal4& i4) {
+     __device__ __host__ inline MyReal4& operator=(const MyReal4& i4) {
         x = i4.x; y = i4.y; z = i4.z; w = i4.w;
         return *this;
     }
@@ -55,12 +55,12 @@ class LinFunComp {
   public:
     typedef MyReal2 BaseType;
 
-    static  __host__ inline
+    static  __device__ __host__ inline
     MyReal2 apply(volatile MyReal2& a, volatile MyReal2& b) {
       return MyReal2( b.x + b.y*a.x, a.y*b.y );
     }
 
-    static  __host__ inline
+    static  __device__ __host__ inline
     MyReal2 identity() {
       return MyReal2(0.0, 1.0);
     }
@@ -70,7 +70,7 @@ class MatMult2b2 {
   public:
     typedef MyReal4 BaseType;
 
-    static  __host__ inline
+    static  __device__ __host__ inline
     MyReal4 apply(volatile MyReal4& a, volatile MyReal4& b) {
       REAL val = 1.0/(a.x*b.x);
       return MyReal4( (b.x*a.x + b.y*a.z)*val,
@@ -79,7 +79,7 @@ class MatMult2b2 {
                       (b.z*a.y + b.w*a.w)*val );
     }
 
-    static  __host__ inline
+    static  __device__ __host__ inline
     MyReal4 identity() {
       return MyReal4(1.0,  0.0, 0.0, 1.0);
     }
@@ -89,7 +89,7 @@ class MatMult2b2 {
 /*** Scan Inclusive Helpers & Kernel ***/
 /***************************************/
 template<class OP, class T>
- inline
+__device__ inline
 T scanIncWarp( volatile T* ptr, const unsigned int idx ) {
     const unsigned int lane = idx & 31;
 
@@ -105,7 +105,7 @@ T scanIncWarp( volatile T* ptr, const unsigned int idx ) {
 }
 
 template<class OP, class T>
- inline
+__device__ inline
 T scanIncBlock(volatile T* ptr, const unsigned int idx) {
     const unsigned int lane   = idx &  31;
     const unsigned int warpid = idx >> 5;
@@ -138,7 +138,7 @@ T scanIncBlock(volatile T* ptr, const unsigned int idx) {
 /*************************************************/
 /*************************************************/
 template<class OP, class T, class F>
- inline
+__device__ inline
 T sgmScanIncWarp(volatile T* ptr, volatile F* flg, const unsigned int idx) {
     const unsigned int lane = idx & 31;
 
@@ -169,7 +169,7 @@ T sgmScanIncWarp(volatile T* ptr, volatile F* flg, const unsigned int idx) {
 }
 
 template<class OP, class T, class F>
- inline
+__device__ inline
 T sgmScanIncBlock(volatile T* ptr, volatile F* flg, const unsigned int idx) {
     const unsigned int lane   = idx &  31;
     const unsigned int warpid = idx >> 5;
@@ -220,7 +220,8 @@ T sgmScanIncBlock(volatile T* ptr, volatile F* flg, const unsigned int idx) {
 //    1. the shared memory space for "mat_sh" can be reused for "lin_sh"
 //    2. with 1., now you have space to hold "u" and "uu" in shared memory.
 //    3. you may hold "a[gid]" in a register, since it is accessed twice, etc.
-__global__ void
+//__global__ void
+__device__ void
 TRIDAG_SOLVER(  REAL* a,
                 REAL* b,
                 REAL* c,

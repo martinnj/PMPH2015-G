@@ -3,8 +3,61 @@
 
 #include "ProjHelperFun.cu.h"
 #include "Constants.h"
+#include "TridagKernel.cu.h"
 
-template <int T>
+
+
+//3d kernel for the 2d-tridag kernel
+__global__ void kernelTridag1(const unsigned outer, REAL *u, REAL *yy, 
+                                REAL *a, REAL *b, REAL *c, const unsigned numX, 
+                                const unsigned numY, const unsigned numZ
+){
+    int kk = blockIdx.z * blockDim.z;
+    int tidz = threadIdx.z;
+    int k = tidz+kk;
+
+    const unsigned n = numY*numX; //based on u (output)
+    const unsigned sgmSize = numX;
+    if(k < outer) {
+        TRIDAG_SOLVER  (&a[idx3d(0,0,k,numY,numZ)], //[idx2d(i,0,numZ)], 
+                        &b[idx3d(0,0,k,numY,numZ)], //[idx2d(i,0,numZ)], 
+                        &c[idx3d(0,0,k,numY,numZ)], //[idx2d(i,0,numZ)],
+                        &u[idx3d(0,0,k,numY,numX)], //[idx2d(i,0,numX)],
+                        n,
+                        sgmSize,
+                        &u[idx3d(0,0,k,numY,numX)], //[idx2d(i,0,numX)],
+                        &yy[idx2d(k,0,numZ)] //[0]
+                        );
+    }
+}
+
+//3d kernel for the 2d-tridag kernel
+__global__ void kernelTridag2(PrivGlobsCuda* globsList, const unsigned outer, 
+                              REAL *y, REAL *yy, REAL *aT, REAL *bT, REAL *cT,
+                const unsigned numX, const unsigned numY, const unsigned numZ
+){
+    int kk = blockIdx.z * blockDim.z;
+    int tidz = threadIdx.z;
+    int k = tidz+kk;
+
+    const unsigned n = numY*numX; //based on u (output)
+    const unsigned sgmSize = numX;
+    if(k < outer) {
+        PrivGlobsCuda globs = globsList[k];
+        TRIDAG_SOLVER(  &aT[idx3d(0,0,k,numZ,numY)], //[idx2d(i,0,numY)], 
+                        &bT[idx3d(0,0,k,numZ,numY)], //[idx2d(i,0,numY)], 
+                        &cT[idx3d(0,0,k,numZ,numY)], //[idx2d(i,0,numY)],
+                        & y[idx3d(0,0,k,numX,numZ)], //[idx2d(i,0,numZ)]
+                        n,
+                        sgmSize,
+                        &globs.myResult[0], //[i][0]
+                        &yy[idx2d(k,0,numZ)] //[0]
+                     );
+    }
+}
+
+
+//template <int TVAL>
 __global__ void kernelRollback1(
         PrivGlobsCuda* globsList, const unsigned g, const unsigned outer, 
         REAL *u, REAL *uT, REAL *v, REAL *y, REAL *yy,
@@ -23,7 +76,7 @@ __global__ void kernelRollback1(
     if(k >= outer)
         return;
 
-    PrivGlobsCuda globs = globsList[z];
+    PrivGlobsCuda globs = globsList[k];
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
     unsigned numX = globs.myXsize,
@@ -68,7 +121,7 @@ __global__ void kernelRollback1(
         uT[idx3d(i,j,k,numX, numY)] += v[idx3d(i,j,k,numX, numY)];
     }
     __syncthreads();
-    transpose3d<T>(uT, u, numY, numX);
+    transpose3dTiled<TVAL>(uT, u, numY, numX);
 
     __syncthreads();
     if(i < numX && j < numY){
@@ -81,13 +134,13 @@ __global__ void kernelRollback1(
     }
     __syncthreads();
 
-    transpose3d<T>(aT, &a, numY, numZ);
-    transpose3d<T>(bT, &b, numY, numZ);
-    transpose3d<T>(cT, &c, numY, numZ);
+    transpose3dTiled<TVAL>(aT, a, numY, numZ);
+    transpose3dTiled<TVAL>(bT, b, numY, numZ);
+    transpose3dTiled<TVAL>(cT, c, numY, numZ);
 }
 
 
-template <int T>
+//template <int TVAL>
 __global__ void kernelRollback2(
         PrivGlobsCuda* globsList, const unsigned g, const unsigned outer, 
         REAL *u, REAL *uT, REAL *v, REAL *y, REAL *yy,
@@ -106,7 +159,7 @@ __global__ void kernelRollback2(
     if(k >= outer)
         return;
 
-    PrivGlobsCuda globs = globsList[z];
+    PrivGlobsCuda globs = globsList[k];
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
     unsigned numX = globs.myXsize,
@@ -126,7 +179,7 @@ __global__ void kernelRollback2(
 
 
     if(i < numX && j < numY){
-        REAL p = 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)];  //[i][j];
+        REAL p = 0.5*0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)];  //[i][j];
         aT[idx3d(i,j,k,numZ,numY)] = -p*globs.myDyy[idx2d(j,0,globs.myDyyCols)]; //[j][0];
         bT[idx3d(i,j,k,numZ,numY)] = 
                             dtInv    -p*globs.myDyy[idx2d(j,1,globs.myDyyCols)]; //[j][1];
@@ -134,11 +187,11 @@ __global__ void kernelRollback2(
     }
     __syncthreads();
 
-    transpose3d<T>(aT, &a, numY, numZ);
-    transpose3d<T>(bT, &b, numY, numZ);
-    transpose3d<T>(cT, &c, numY, numZ);
+    transpose3dTiled<TVAL>(aT, a, numY, numZ);
+    transpose3dTiled<TVAL>(bT, b, numY, numZ);
+    transpose3dTiled<TVAL>(cT, c, numY, numZ);
 
-    transpose3d<T>(u, &uT, numX, numY);
+    transpose3dTiled<TVAL>(u, uT, numX, numY);
     __syncthreads();
 
     if(i < numX && j < numY){
@@ -166,7 +219,7 @@ __global__ void kernelUpdate(
     if(k >= outer)
         return;
 
-    PrivGlobsCuda globs = globsList[z];
+    PrivGlobsCuda globs = globsList[k];
 
     if(i < globs.myXsize && j < globs.myYsize){ //updateParams(g,alpha,beta,nu,globs[j]);
         globs.myVarX[idx2d(i, j, globs.myVarXCols)] = 

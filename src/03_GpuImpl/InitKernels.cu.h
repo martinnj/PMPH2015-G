@@ -5,12 +5,12 @@
 #include "ProjHelperFun.cu.h"
 #include "Constants.h"
 
-void FKernelInitGrid( int index,
+__device__ void FKernelInitGrid( int index,
                 PrivGlobsCuda& globs, const unsigned numX, const unsigned numY, 
-                const unsigned numT, const REAL t, const REAL dx, const REAL dy,
+                const unsigned numT, const REAL T, const REAL dx, const REAL dy,
                 const REAL logAlpha, const REAL s0) {
     if(index < numT){
-        globs.myTimeline[index] = t*index/(numT-1);
+        globs.myTimeline[index] = T*index/(numT-1);
     }
     if(index < numX){
         globs.myX[index] = index*dx - globs.myXindex*dx + s0;
@@ -21,7 +21,7 @@ void FKernelInitGrid( int index,
 }
 
 
-void FKernelInitOperator(int index, const unsigned n, REAL* x, REAL* Dxx, 
+__device__ void FKernelInitOperator(int index, const unsigned n, REAL* x, REAL* Dxx, 
                          unsigned DxxCols){
     if(index == 0){
         Dxx[0] =  0.0;
@@ -44,7 +44,7 @@ void FKernelInitOperator(int index, const unsigned n, REAL* x, REAL* Dxx,
     }
 }
 
-void FKernelSetPayoff(int j, int k, const REAL strike, PrivGlobsCuda& globs, REAL* payoff){
+__device__ void FKernelSetPayoff(int j, int k, const REAL strike, PrivGlobsCuda& globs, REAL* payoff){
     unsigned xSize = globs.myXsize;
     if(j < globs.myXsize)
         payoff[j] = max(globs.myX[j]-strike, (REAL)0.0);
@@ -112,18 +112,23 @@ for( unsigned i = 0; i < outer; ++ i ) {
 }
 
 
-__global__ void constructGlobs(PrivGlobsCuda* globs, const unsigned outer, 
-                               const unsigned numX, const unsigned numY, 
-                               const unsigned numT
+void constructGlobs(PrivGlobsCuda** globs, const unsigned outer, 
+                    const unsigned numX, const unsigned numY, 
+                    const unsigned numT
 ){
-    const unsigned int gid = threadIdx.x + blockIdx.x*blockDim.x;
-    if(gid < outer)
-        globs[gid] = PrivGlobsCuda(numX, numY, numT);
+    unsigned mem_size = outer*sizeof(struct PrivGlobsCuda);
+    PrivGlobsCuda* globsLocal = (PrivGlobsCuda*) malloc(mem_size);
+    for(unsigned i=0; i<outer; i++)
+        globsLocal[i] = PrivGlobsCuda(numX, numY, numT);
+
+
+    cudaMalloc((void**)globs, mem_size);
+    cudaMemcpy(*globs, globsLocal, mem_size, cudaMemcpyHostToDevice);
 }
 
 
 
-void init(PrivGlobsCuda* globsList, const unsigned outer, const REAL s0, 
+void init(PrivGlobsCuda** globsList, const unsigned outer, const REAL s0, 
           const REAL alpha, const REAL nu, const REAL t, const unsigned numX, 
           const unsigned numY, const unsigned numT
 ){
@@ -137,26 +142,28 @@ void init(PrivGlobsCuda* globsList, const unsigned outer, const REAL s0,
     cudaMalloc((void**)&payoff, numX*sizeof(REAL)); //myXsize = numX
     {
         // Construct the CUDA globs
-        const unsigned int block_size   = 512;
-        unsigned int num_blocks         = ceil(((float) outer) / block_size);
-        constructGlobs<<< num_blocks, block_size>>> (globsList, outer, numX, 
-                                                     numY, numT);
-        cudaThreadSynchronize();
+        printf("\ninit: constructing globs\n");
+        constructGlobs (globsList, outer, numX, numY, numT);
+        printf("init: done globs\n");
 
         // Initialize the globs
-        const unsigned int T = 8; //8*8*8 = 512 =< 1024
+        //const unsigned int t = 8; //8*8*8 = 512 =< 1024
         const int x = outer;
         const int y = numT;    //max(myXsize, numT), myXsize = numX
         const int z = numT;    //max(y, myYsize), myYsize = numY
 
-        const int dimx = ceil( ((float)x) / T );
-        const int dimy = ceil( ((float)y) / T );
-        const int dimz = ceil( ((float)z) / T );
-        dim3 block(T,T,T), grid(dimx,dimy,dimz); 
+        const int dimx = ceil( ((float)x) / TVAL );
+        const int dimy = ceil( ((float)y) / TVAL );
+        const int dimz = ceil( ((float)z) / TVAL );
+        dim3 block(TVAL,TVAL,TVAL), grid(dimx,dimy,dimz); 
 
-        kernelInit<<< grid, block>>>(globsList, numX, numY, numT, t, dx, dy, 
+        printf("init: kernelInit begin\n");
+
+        kernelInit<<< grid, block>>>(*globsList, numX, numY, numT, t, dx, dy, 
                                      logAlpha, s0, payoff, outer);
         cudaThreadSynchronize();
+
+        printf("init: kernelInit done\n");
 
         cudaFree(payoff);
     }

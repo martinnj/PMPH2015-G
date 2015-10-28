@@ -7,4 +7,6 @@
     typedef float  REAL;
 #endif
 
+#define TVAL 8 //8*8*8 = 512 =< 1024
+
 #endif // CONSTANTS

@@ -1,11 +1,11 @@
 CXX        = nvcc
-CXXFLAGS   = -O3 -DWITH_FLOATS=0
+CXXFLAGS   = -O3 -DWITH_FLOATS=1 -arch=sm_20
 
 INCLUDES  += -I ../include
 GPU_OPTS   = -D lgWARP=5
 
 SOURCES_CPP =ProjectMain.cu ProjHelperFun.cu ProjCoreOrig.cu
-HELPERS     =ProhHelperFun.cu.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/TridagPar.h ../include/TridagKernel.cu.h
+#HELPERS     =ProjhHelperFun.cu.h ../include/Constants.h ../include/ParseInput.h ../include/ParserC.h ../include/TridagPar.h ../include/TridagKernel.cu.h
 #OBJECTS     =ProjectMain.cu.o ProjHelperFun.cu.o  ProjCoreOrig.cu.o
 EXECUTABLE  =runproject
 
