@@ -28,27 +28,32 @@ struct PrivGlobs {
 
     //	variable
     //vector<vector<REAL> > myResult; // [numX][numY]
-    vector<REAL> myResult;
+    //vector<REAL> myResult;
+    REAL* myResult;
     unsigned myResultRows;
     unsigned myResultCols;
 
     //	coeffs
     //vector<vector<REAL> >   myVarX; // [numX][numY]
     //vector<vector<REAL> >   myVarY; // [numX][numY]
-    vector<REAL> myVarX;
+    //vector<REAL> myVarX;
+    REAL* myVarX;
     unsigned myVarXRows;
     unsigned myVarXCols;
-    vector<REAL> myVarY;
+    //vector<REAL> myVarY;
+    REAL* myVarY;
     unsigned myVarYRows;
     unsigned myVarYCols;
 
     //	operators
     //vector<vector<REAL> >   myDxx;  // [numX][4]
     //vector<vector<REAL> >   myDyy;  // [numY][4]
-    vector<REAL> myDxx;
+    //vector<REAL> myDxx;
+    REAL* myDxx;
     unsigned myDxxRows;
     unsigned myDxxCols;
-    vector<REAL> myDyy;
+    //vector<REAL> myDyy;
+    REAL* myDyy;
     unsigned myDyyRows;
     unsigned myDyyCols;
 
@@ -67,7 +72,8 @@ struct PrivGlobs {
         // for(int k=0; k<numX; k++) {
         //     this->myDxx[k].resize(4);
         // }
-        this->myDxx.resize(numX*4);
+        //this->myDxx.resize(numX*4);
+        this->myDxx = (REAL*) malloc(sizeof(REAL)*numX*4);
         this->myDxxRows = numX;
         this->myDxxCols = 4;
 
@@ -78,7 +84,8 @@ struct PrivGlobs {
         // for(int k=0; k<numY; k++) {
         //     this->myDyy[k].resize(4);
         // }
-        this->myDyy.resize(numY*4);
+        //this->myDyy.resize(numY*4);
+        this->myDyy = (REAL*) malloc(sizeof(REAL)*numY*4);
         this->myDyyRows = numY;
         this->myDyyCols = 4;
 
@@ -94,15 +101,18 @@ struct PrivGlobs {
             //this->  myVarY[i].resize(numY);
             //this->myResult[i].resize(numY);
         //}
-        this->myVarX.resize(numX*numY);
+        //this->myVarX.resize(numX*numY);
+        this->myVarX = (REAL*) malloc(sizeof(REAL)*numX*numY);
         this->myVarXRows = numX;
         this->myVarXCols = numY;
 
-        this->myVarY.resize(numX*numY);
+        //this->myVarY.resize(numX*numY);
+        this->myVarY = (REAL*) malloc(sizeof(REAL)*numX*numY);
         this->myVarYRows = numX;
         this->myVarYCols = numY;
 
-        this->myResult.resize(numX*numY);
+        //this->myResult.resize(numX*numY);
+        this->myResult = (REAL*) malloc(sizeof(REAL)*numX*numY);
         this->myResultRows = numX;
         this->myResultCols = numY;
 
@@ -118,7 +128,7 @@ void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
 //                    vector<vector<REAL> >& Dxx
 //                 );
 void initOperator(  const REAL *x, unsigned xsize,
-                    vector<REAL> &Dxx, unsigned DxxCols
+                    REAL* &Dxx, unsigned DxxCols
                  );
 
 

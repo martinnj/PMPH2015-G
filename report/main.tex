@@ -1,0 +1,126 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{a4wide}
+\usepackage[utf8x]{inputenc}
+\usepackage{ucs}
+\usepackage[T1]{fontenc}
+\linespread{1.2}
+\usepackage{amsmath,amssymb,amsthm,amsfonts,ulem}
+\usepackage{courier}
+% \usepackage{fourier}
+\usepackage{color}
+% \usepackage{clrscode3e}
+\usepackage{multicol}
+%\usepackage{pdflscape}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{3}
+
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{mdwlist}
+\usepackage{wrapfig}
+\usepackage{caption}
+\usepackage{todonotes}
+\usepackage{ulem}
+
+\usepackage{mathtools}
+\DeclarePairedDelimiter{\ceil}{\lceil}{\rceil}
+
+% usage: \graphicc{width}{file}{caption}{label}
+\newcommand{\graphicc}[4]{\begin{figure}[H] \centering
+            \includegraphics[width={#1\textwidth}, keepaspectratio=true]{{#2}}
+            \caption{{#3}} \label{#4} \end{figure}}
+
+% usage: \codefig{label}{file}{firstline}{lastline}{description}
+\newcommand{\codefig}[5]
+{
+\begin{figure}[H]
+    \lstinputlisting[firstnumber=#3,firstline=#3,lastline=#4]{#2}
+    \caption{#5 (#2)}
+    \label{code:#1}
+\end{figure}
+}
+
+\definecolor{comment}{rgb}      {0.38, 0.62, 0.38}
+\definecolor{keyword}{rgb}      {0.10, 0.10, 0.81}
+\definecolor{identifier}{rgb}   {0.00, 0.00, 0.00}
+\definecolor{string}{rgb}       {0.50, 0.50, 0.50}
+
+\lstset
+{
+    language=c++,
+    % general settings
+    numbers=left,
+    frame=single,
+    basicstyle=\footnotesize\ttfamily,
+    tabsize=2,
+    breaklines=true,
+    showstringspaces=false,
+    % syntax highlighting
+    commentstyle=\color{comment},
+    keywordstyle=\color{keyword},
+    identifierstyle=\color{identifier},
+    stringstyle=\color{string},
+}
+
+\title{\textbf{Final Project Report\\ Programming Massively Parallel Hardware 2015}
+\author
+{
+    Martin Jørgensen \\
+    University of Copenhagen \\
+    Department of Computer Science \\
+    {\tt tzk173@alumni.ku.dk}
+    \and
+    Henrik Bendt \\
+    University of Copenhagen \\
+    Department of Computer Science \\
+    {\tt gwk553@alumni.ku.dk}
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\pagebreak
+
+
+%Object:
+% This project targets first-and-foremost efficient parallelization of the small dataset. This dataset corresponds to values OUTER=16, NUM_X = 32, NUM_Y = 256, and requires that all parallelism is exploited in order to efficiently utilize the GPGPU, i.e., the loops in the tridag function must also be parallelized. The latter requires the computation of several segmented scans (interleaved with maps) in the innermost dimension. However the segment size is either 32 or 256, which means that they can be performed at CUDA-block level, hence efficient. (Meaning, if the block size is chosen 256 then the elements of a segment will never cross two blocks, and in particular there is a multiple of segments that would fit exactly the size of the block.) You will receive ample help on how to reqrite tridag into segmented scans and how to parallelize the scans.
+
+
+
+%Notes
+% vi skal i rapporten argumentere for hvad vi kan og ikke kan parallelisere
+% og så kommer det til at være meget privatization og loop expansion
+% og så interchange det yderste, som ma ruler dem ud (som jeg lige forstod det)
+% og så er der self noget loop distribution
+
+% og han råder os til at lave CUDA som det sidste, efter alle loop-fixes
+% vi starter i noget C++ kode, med vectors, fordi de simplificere koden - men skal ende i ren C fordi vi bruger CUDA
+% så vi bør vente med CUDA-transformation til aller sidst.
+
+
+
+
+
+\section{Benchmarks}
+
+\subsection{CPU benchmark}
+Benchmark on non-optimized code, CPU test:
+With CPU argument and privatization of strike and PrivGlobs.
+2291156 single cpu kernel local machine
+907715 parallel 4 cpu kernels local machine
+factor 20 improvement.
+
+
+
+
+%%\appendix
+%%\bibliographystyle{abbrv}
+%%\bibliography{citations}
+%%\input{appendix1}
+
+\end{document}

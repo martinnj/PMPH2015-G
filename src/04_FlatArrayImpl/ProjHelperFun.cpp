@@ -50,7 +50,7 @@ void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
 //void initOperator(  const vector<REAL>& x,
 //                    vector<vector<REAL> >& Dxx
 void initOperator(  const REAL *x, unsigned xsize,
-                    vector<REAL> &Dxx, unsigned DxxCols
+                    REAL* &Dxx, unsigned DxxCols
 ) {
 	const unsigned n = xsize;
 
