@@ -142,22 +142,28 @@ __device__ void transpose3dTiled(REAL* A, REAL* trA, int rowsA, int colsA );
 
 ///////////// GIVEN CODE FROM SLIDES project.pdf p 17. /////////////
 ///////////// assumes z is the outer dim and all matrices are same dims.
+//Note that it does not make a check on the outer dim, so num threads of outer 
+//dimz must be precise!
 template <int T>
-__device__ void transpose3dTiled(REAL* A, REAL* trA, int rowsA, int colsA ) {
+__global__ void transpose3dTiled(REAL* A, REAL* trA, int rowsA, int colsA ) {
     __shared__ REAL tile[T][T+1];
 
     int gidz=blockIdx.z*blockDim.z*threadIdx.z;
-    A+=gidz*rowsA*colsA; trA+=gidz*rowsA*colsA;
+    A+=gidz*rowsA*colsA; 
+    trA+=gidz*rowsA*colsA;
 
     // follows code for matrix transp in x & y
-    int tidx = threadIdx.x, tidy = threadIdx.y;
-    int j=blockIdx.x*T+tidx,i=blockIdx.y*T+tidy;
+    int tidx = threadIdx.x, 
+        tidy = threadIdx.y;
+    int j=blockIdx.x*T+tidx,
+        i=blockIdx.y*T+tidy;
 
     if( j < colsA && i < rowsA )
         tile[tidy][tidx] = A[i*colsA+j];
     __syncthreads();
 
-    i=blockIdx.y*T+tidx; j=blockIdx.x*T+tidy;
+    i=blockIdx.y*T+tidx;
+    j=blockIdx.x*T+tidy;
     if( j < colsA && i < rowsA )
         trA[j*rowsA+i] = tile[tidx][tidy];
 }

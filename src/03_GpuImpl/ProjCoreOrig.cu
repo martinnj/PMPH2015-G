@@ -2,7 +2,39 @@
 #include "Constants.h"
 #include "InitKernels.cu.h"
 #include "CoreKernels.cu.h"
-#include "TridagKernel.cu.h"
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////DEBUGGING//////////////////////
+__global__ void getList(PrivGlobsCuda* globsList, 
+                                 REAL* res_out,
+                                 const unsigned size
+                                 // REAL* mat
+){
+    const unsigned int gid = threadIdx.x + blockIdx.x*blockDim.x;
+
+    PrivGlobsCuda globs = globsList[8];
+    if(gid < size){
+        //res_out[gid] = globs.myVarX[gid];
+        //res_out[gid] = globs.myTimeline[gid];
+        // res_out[gid] = globs.myResult[gid];
+        //res_out[gid] = mat[gid];
+        res_out[0] = (REAL) globs.myXindex;
+        res_out[1] = (REAL) globs.myYindex;
+        res_out[2] = (REAL) globs.myResult[idx2d(globs.myXindex,
+                                            globs.myYindex,
+                                            globs.myResultCols)];
+        //res_out[gid] = globs.myResult[gid];
+    }
+    /*
+    for( unsigned j = 0; j < outer; ++ j ) { //par
+        res[j] = globs[j].myResult[globs[j].myXindex][globs[j].myYindex];
+    }
+    */
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+
 
 //wrapper for the kernelUpdate
 void updateWrapper( PrivGlobsCuda* globsList, const unsigned g,
@@ -31,28 +63,30 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
 ){
     // create all arrays as multidim arrays for rollback()
     REAL *u, *uT, *v, *y, *yy;
+    //[3.dim][1.dim][2.dim]
+    //u = [numY][numX][outer]; numY rows, numX cols
     cudaMalloc((void**)&u,  outer*( numY*numX*sizeof(REAL)  ));
     cudaMalloc((void**)&uT, outer*( numX*numY*sizeof(REAL)  ));
     cudaMalloc((void**)&v,  outer*( numX*numY*sizeof(REAL)  ));
-    cudaMalloc((void**)&y,  outer*( numX*numZ*sizeof(REAL)  ));
-    cudaMalloc((void**)&yy, outer*(      numZ*sizeof(REAL)  ));
+    cudaMalloc((void**)&y,  outer*( numX*numY*sizeof(REAL)  ));
+    cudaMalloc((void**)&yy, outer*( numX*numY*sizeof(REAL)  ));
+    // cudaMalloc((void**)&yy, outer*( numX*sizeof(REAL)  ));
 
     REAL *a, *b, *c, *aT, *bT, *cT;
-    cudaMalloc((void**)&a,  outer*( numY*numZ*sizeof(REAL)  ));
-    cudaMalloc((void**)&b,  outer*( numY*numZ*sizeof(REAL)  ));
-    cudaMalloc((void**)&c,  outer*( numY*numZ*sizeof(REAL)  ));
-    cudaMalloc((void**)&aT, outer*( numZ*numY*sizeof(REAL)  ));
-    cudaMalloc((void**)&bT, outer*( numZ*numY*sizeof(REAL)  ));
-    cudaMalloc((void**)&cT, outer*( numZ*numY*sizeof(REAL)  ));
+    cudaMalloc((void**)&a,  outer*( numY*numX*sizeof(REAL)  ));
+    cudaMalloc((void**)&b,  outer*( numY*numX*sizeof(REAL)  ));
+    cudaMalloc((void**)&c,  outer*( numY*numX*sizeof(REAL)  ));
+    cudaMalloc((void**)&aT, outer*( numX*numY*sizeof(REAL)  ));
+    cudaMalloc((void**)&bT, outer*( numX*numY*sizeof(REAL)  ));
+    cudaMalloc((void**)&cT, outer*( numX*numY*sizeof(REAL)  ));
 
     const int x = numZ;    //max(myXsize, numY), myXsize = numX
     //const int y = numZ = x;    //max(y, myYsize), myYsize = numY
-    const int z = outer;
 
-    const int dimx = ceil( ((float)x) / TVAL );
-    const int dimy = ceil( ((float)x) / TVAL );
-    const int dimz = ceil( ((float)z) / TVAL );
-    dim3 block(TVAL,TVAL,TVAL), grid(dimx,dimy,dimz);
+    int dimx = ceil( ((float)x) / TVAL );
+    int dimy = ceil( ((float)x) / TVAL );
+    int dimz = outer;
+    dim3 block(TVAL,TVAL,1), grid(dimx,dimy,dimz);
 
     const unsigned n = numY*numX;
     unsigned int block_size = 512;
@@ -60,32 +94,74 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
     unsigned int sh_mem_size = block_size * 32;
 
     kernelRollback1 <<< grid, block >>> (   globsList, g, outer, 
-                                            u, uT, v, y, yy, 
+                                            u, uT, v, y, 
                                             a, b, c, aT, bT, cT);
     cudaThreadSynchronize();
 
-    printf("\nrollback wrapper: tridag1\n");
 
-    //TODO: Tridag 1
+    transpose3dTiled<TVAL><<< grid, block >>>(uT, u, numY, numX);
+    cudaThreadSynchronize();
+
+    transpose3dTiled<TVAL><<< grid, block >>>(aT, a, numX, numY);
+    cudaThreadSynchronize();
+    transpose3dTiled<TVAL><<< grid, block >>>(bT, b, numX, numY);
+    cudaThreadSynchronize();
+    transpose3dTiled<TVAL><<< grid, block >>>(cT, c, numX, numY);  
+    cudaThreadSynchronize();
+
+    //Tridag 1
     //tridag1(outer, u, yy, a, b, c, numX, numY, numZ);
     kernelTridag1 <<< num_blocks, block_size, sh_mem_size >>> 
-                                    (outer, u, yy, a, b, c, numX, numY, numZ);
+                                    (outer, u, yy, a, b, c, numX, numY);
     cudaThreadSynchronize();
 
-    printf("\nrollback wrapper: rollback2\n");
-
-    kernelRollback2 <<< grid, block>>> (   globsList, g, outer, 
+    kernelRollback2 <<< grid, block>>> (    globsList, g, outer, 
                                             u, uT, v, y, yy, 
                                             a, b, c, aT, bT, cT);
     cudaThreadSynchronize();
-    printf("\nrollback wrapper: tridag2\n");
+
+    transpose3dTiled<TVAL><<< grid, block >>>(aT, a, numY, numX);
+    cudaThreadSynchronize();
+    transpose3dTiled<TVAL><<< grid, block >>>(bT, b, numY, numX);
+    cudaThreadSynchronize();
+    transpose3dTiled<TVAL><<< grid, block >>>(cT, c, numY, numX);
+    cudaThreadSynchronize();
+    transpose3dTiled<TVAL><<< grid, block >>>(u, uT, numX, numY);
+    cudaThreadSynchronize();
+
+    kernelRollback3 <<< grid, block>>> (globsList, g, outer, uT, v, y);
+    cudaThreadSynchronize();
 
     //tridag2(globsList, outer, y, yy, aT, bT, cT, numX, numY, numZ);
     kernelTridag2 <<< num_blocks, block_size, sh_mem_size >>> 
-                        (globsList, outer, y, yy, aT, bT, cT, numX, numY, numZ);
+                        (globsList, outer, y, yy, aT, bT, cT, numX, numY);
     cudaThreadSynchronize();
 
-    printf("\nrollback wrapper done\n");
+    {
+        //unsigned s = numX*numY;
+        unsigned size = 3;
+        unsigned mem_size = size*sizeof(REAL);
+
+        unsigned num_threads = size;
+        unsigned block_size = 512;
+        unsigned int num_blocks = ceil(((float) num_threads) / block_size);
+
+        REAL *res, *d_res;
+        cudaMalloc((void**)&d_res, mem_size);
+        res = (REAL*) malloc(mem_size);
+
+        getList<<< num_blocks, block_size>>>(globsList, d_res, size);
+        cudaThreadSynchronize();
+
+        cudaMemcpy(res, d_res, mem_size, cudaMemcpyDeviceToHost);
+
+        printf("\nres = [\n");
+        for(unsigned i=0; i < size; i++)
+            printf("[%d] = %.5f\n", i, res[i]);
+        printf("\n]\n");
+
+        //exit(0);
+    }
 
     cudaFree(u);
     cudaFree(uT);
@@ -102,14 +178,14 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
 
 void getResultsWrapper(PrivGlobsCuda* globsList, 
                        const unsigned outer, 
-                       REAL** res){
+                       REAL* res){
     const unsigned int num_threads  = outer;
     const unsigned int block_size   = 512;
     unsigned int num_blocks         = ceil(((float) num_threads) / block_size);
 
     unsigned int mem_size           = outer * sizeof(REAL);
 
-    (*res) = (REAL*) malloc(mem_size);
+    //(*res) = (REAL*) malloc(mem_size);
     {
         float* d_out;
         cudaMalloc((void**)&d_out, mem_size);
@@ -118,10 +194,15 @@ void getResultsWrapper(PrivGlobsCuda* globsList,
         cudaThreadSynchronize();
         
         //cuda results to mem
-        cudaMemcpy(*res, d_out, mem_size, cudaMemcpyDeviceToHost);
+        cudaMemcpy(res, d_out, mem_size, cudaMemcpyDeviceToHost);
         cudaFree(d_out);
     }
 }
+
+
+
+
+
 
 void   run_GPU(
                 const unsigned int&   outer,
@@ -138,11 +219,48 @@ void   run_GPU(
  
     // sequential loop distributed.
     PrivGlobsCuda* globsList;
+    const unsigned numZ = max(numX, numY);
     //cudaMalloc((void**)&globsList, outer*sizeof(struct PrivGlobsCuda));
 
     printf("init begin\n");
     init(&globsList, outer, s0, alpha, nu, t, numX, numY, numT);
     printf("init done\n");
+    
+
+
+
+    ///////////////////////////////////////////////////
+
+// {
+//         //unsigned s = numX*numY;
+//         unsigned size = 4;
+//         unsigned mem_size = size*sizeof(REAL);
+
+//         unsigned num_threads = size;
+//         unsigned block_size = 512;
+//         unsigned int num_blocks = ceil(((float) num_threads) / block_size);
+
+//         REAL *res, *d_res;
+//         cudaMalloc((void**)&d_res, mem_size);
+//         res = (REAL*) malloc(mem_size);
+
+//         getList<<< num_blocks, block_size>>>(globsList, d_res, size);
+//         cudaThreadSynchronize();
+
+//         cudaMemcpy(res, d_res, mem_size, cudaMemcpyDeviceToHost);
+
+//         printf("\nres = [\n");
+//         for(unsigned i=0; i < size; i++)
+//             printf("[%d] = %.5f\n", i, res[i]);
+//         printf("\n]\n");
+
+//         //exit(0);
+//     }
+
+    //////////////////////////////////////////////////////
+
+    
+    
     for(int g = numT-2;g>=0;--g){ //seq
         //updateParams()
         printf("update begin\n");
@@ -150,11 +268,10 @@ void   run_GPU(
         printf("update done\n");
         //rollback()
         printf("rollback begin\n");
-        const unsigned numZ = max(numX, numY);
         rollbackWrapper(globsList, g, outer, numX, numY, numZ);
         printf("rollback done\n");
     }
-    getResultsWrapper(globsList, outer, &res);
+    getResultsWrapper(globsList, outer, res);
 }
 
 

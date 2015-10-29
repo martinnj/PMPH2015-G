@@ -1,0 +1,1220 @@
+rm -f Debug.txt runproject
+nvcc -O3 -DWITH_FLOATS=1 -arch=sm_20 -I ../include -o runproject ProjectMain.cu ProjHelperFun.cu ProjCoreOrig.cu
+cat ../Data/Small/input.data ../Data/Small/output.data | ./runproject 2> Debug.txt
+
+// Running Original, Sequential Project Program
+init begin
+
+init: constructing globs
+init: done globs
+init: kernelInit begin
+
+res = [
+[0] = 0.00000
+[1] = 0.00000
+[2] = 0.00000
+[3] = 0.00000
+[4] = 14222.22363
+[5] = -28444.44336
+[6] = 14222.22070
+[7] = 0.00000
+[8] = 14222.22168
+[9] = -28444.44922
+[10] = 14222.22852
+[11] = 0.00000
+[12] = 14222.22852
+[13] = -28444.44922
+[14] = 14222.22168
+[15] = 0.00000
+[16] = 0.12401
+[17] = 0.13239
+[18] = 0.14078
+[19] = 0.14916
+[20] = 0.15755
+[21] = 0.16593
+[22] = 0.17432
+[23] = 0.18271
+[24] = 0.19109
+[25] = 0.19948
+[26] = 0.20786
+[27] = 0.21625
+[28] = 0.22463
+[29] = 0.23302
+[30] = 0.24140
+[31] = 0.24979
+[32] = -0.00000
+[33] = -0.00000
+[34] = -0.00001
+[35] = -0.00001
+[36] = -0.00001
+[37] = -0.00001
+[38] = -0.00001
+[39] = -0.00001
+[40] = -0.00002
+[41] = -0.00002
+[42] = -0.00002
+[43] = -0.00002
+[44] = -0.00002
+[45] = -0.00003
+[46] = -0.00003
+[47] = -0.00003
+[48] = -0.00003
+[49] = -0.00003
+[50] = -0.00004
+[51] = -0.00004
+[52] = -0.00004
+[53] = -0.00004
+[54] = -0.00004
+[55] = -0.00005
+[56] = -0.00005
+[57] = -0.00005
+[58] = -0.00005
+[59] = -0.00005
+[60] = -0.00006
+[61] = -0.00006
+[62] = -0.00006
+[63] = -0.00000
+[64] = 1.41421
+[65] = 0.00245
+[66] = 0.08333
+[67] = 0.69315
+[68] = 0.00000
+[69] = 1.87500
+[70] = nan
+[71] = nan
+[72] = nan
+[73] = -0.00002
+[74] = -0.00002
+[75] = -0.00003
+[76] = -0.00003
+[77] = -0.00003
+[78] = -0.00003
+[79] = -0.00003
+[80] = -0.00004
+[81] = -0.00004
+[82] = -0.00004
+[83] = -0.00004
+[84] = -0.00005
+[85] = -0.00005
+[86] = -0.00005
+[87] = -0.00005
+[88] = -0.00005
+[89] = -0.00006
+[90] = -0.00006
+[91] = -0.00006
+[92] = -0.00006
+[93] = -0.00006
+[94] = -0.00007
+[95] = -0.00000
+[96] = -0.00000
+[97] = -0.00000
+[98] = -0.00001
+[99] = -0.00001
+[100] = -0.00001
+[101] = -0.00001
+[102] = -0.00002
+[103] = -0.00002
+[104] = -0.00002
+[105] = -0.00002
+[106] = -0.00003
+[107] = -0.00003
+[108] = -0.00003
+[109] = -0.00003
+[110] = -0.00004
+[111] = -0.00004
+[112] = -0.00004
+[113] = -0.00004
+[114] = -0.00005
+[115] = -0.00005
+[116] = -0.00005
+[117] = -0.00005
+[118] = -0.00005
+[119] = -0.00006
+[120] = -0.00006
+[121] = -0.00006
+[122] = -0.00006
+[123] = -0.00007
+[124] = -0.00007
+[125] = -0.00007
+[126] = -0.00007
+[127] = -0.00000
+
+]
+init: kernelInit done
+init done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+update begin
+update done
+rollback begin
+
+rollback wrapper: tridag1
+
+rollback wrapper: rollback2
+
+rollback wrapper: tridag2
+
+rollback wrapper done
+rollback done
+// OUTER=16, NUM_X=32, NUM_Y=256, NUM_T=90.
+0		// INVALID Result,
+785723		// Runtime in microseconds,
+1		// CPU Threads,
+
+
+ [ 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000 , 0.000000  ]	//PMPH Project Result
+
