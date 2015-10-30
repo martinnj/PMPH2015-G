@@ -355,7 +355,7 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
         }
     }
 
-    transpose(uT, &u, numY, numX);
+    transpose2d(uT, &u, numY, numX);
 
     REAL *a = (REAL*) malloc(numY*numZ*sizeof(REAL));           // [numY][numZ]
     REAL *b = (REAL*) malloc(numY*numZ*sizeof(REAL));           // [numY][numZ]
@@ -374,9 +374,9 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
             cT[idx2d(i,j,numY)] =    - 0.5*(0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]*globs.myDxx[idx2d(i,2,globs.myDxxCols)]);
         }
     }
-    transpose(aT, &a, numY, numZ);
-    transpose(bT, &b, numY, numZ);
-    transpose(cT, &c, numY, numZ);
+    transpose2d(aT, &a, numY, numZ);
+    transpose2d(bT, &b, numY, numZ);
+    transpose2d(cT, &c, numY, numZ);
 
     for(j=0;j<numY;j++) { // par
         // here yy should have size [numX]
@@ -393,11 +393,11 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
             cT[idx2d(i,j,numY)] =       - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,2,globs.myDyyCols)]);
         }
     }
-    transpose(aT, &a, numY, numZ);
-    transpose(bT, &b, numY, numZ);
-    transpose(cT, &c, numY, numZ);
+    transpose2d(aT, &a, numY, numZ);
+    transpose2d(bT, &b, numY, numZ);
+    transpose2d(cT, &c, numY, numZ);
 
-    transpose(u, &uT, numX, numY); //Must retranspose to uT because prev tridag
+    transpose2d(u, &uT, numX, numY); //Must retranspose to uT because prev tridag
                                    // modified u.
 
 
@@ -501,11 +501,24 @@ printf("wtf\n");
 printf("wtf2\n");
 
 
-    for(int g = numT-2;g>=0;--g){ //seq
-        updateWrapper(globsList, g, numX, numY, outer, alpha, beta, nu);
-        rollback(i, globs[j]);
-        //rollbackWrapper(globsList, g, outer, numX, numY);
+        // for(int g = numT-2;g>=0;--g){ //seq
+    //     updateWrapper(globsList, g, numX, numY, outer, alpha, beta, nu);
+    //     rollback(i, globs[j]);
+    //     //rollbackWrapper(globsList, g, outer, numX, numY);
+    // }
+    // for( unsigned j = 0; j < outer; ++ j ) { //par
+    //     res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,globs[j].myResultCols)];
+    // }
+
+
+
+    for(int i = numT-2;i>=0;--i){ //seq
+        for( unsigned j = 0; j < outer; ++ j ) { //par
+            updateParams(i,alpha,beta,nu,globs[j]);
+            rollback(i, globs[j]);
+        }
     }
+    // parallel assignment of results.
     for( unsigned j = 0; j < outer; ++ j ) { //par
         res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,globs[j].myResultCols)];
     }
