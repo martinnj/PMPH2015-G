@@ -29,3 +29,10 @@
 
 # Debugging file
 Debug.txt
+
+# Latex intermidiary files
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.toc
