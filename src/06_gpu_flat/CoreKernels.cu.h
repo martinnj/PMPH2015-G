@@ -230,12 +230,15 @@ __global__ void kernelRollback3(
     }
 }
 
+
 __global__ void kernelUpdate(
-        PrivGlobsCuda* globsList, const unsigned g,
-        const unsigned numX, const unsigned numY, const unsigned outer, 
-        const REAL alpha, const REAL beta, const REAL nu
+        REAL* myVarX, REAL* myX, REAL* myVarY, REAL* myY,
+        REAL* myTimeline, const unsigned myXsize, const unsigned myYsize, 
+        const unsigned myVarXCols, const unsigned myVarXRows, 
+        const unsigned myVarYCols, const unsigned myVarYRows,
+        const unsigned myTimelineSize, const unsigned g,
+        const unsigned outer, const REAL alpha, const REAL beta, const REAL nu
 ){
-    //for( unsigned j = 0; j < outer; ++ j ) { //par
     int ii = blockIdx.x * blockDim.x;
     int jj = blockIdx.y * blockDim.y;
     int kk = blockIdx.z * blockDim.z;
@@ -249,18 +252,22 @@ __global__ void kernelUpdate(
     if(k >= outer)
         return;
 
-    PrivGlobsCuda globs = globsList[k];
+    myVarX = &myVarX[k*myVarXCols*myVarXRows];
+    myX = &myX[k*myXsize];
+    myVarX = &myVarY[k*myVarYCols*myVarYRows];
+    myY = &myY[k*myYsize];
+    myTimeline = &myTimeline[k*myTimelineSize];
 
-    if(i < globs.myXsize && j < globs.myYsize){ //updateParams(g,alpha,beta,nu,globs[j]);
-        globs.myVarX[idx2d(i, j, globs.myVarXCols)] = 
-                            exp(2.0*(  beta*log(globs.myX[i])
-                                      + globs.myY[j]
-                                      - 0.5*nu*nu*globs.myTimeline[g] )
+    if(i < myXsize && j < myYsize){ //updateParams(g,alpha,beta,nu,globs[j]);
+        myVarX[idx2d(i, j, myVarXCols)] = 
+                            exp(2.0*(  beta*log(myX[i])
+                                      + myY[j]
+                                      - 0.5*nu*nu*myTimeline[g] )
                                 );
-        globs.myVarY[idx2d(i, j, globs.myVarYCols)] = 
-                            exp(2.0*(  alpha*log(globs.myX[i])
-                                          + globs.myY[j]
-                                          - 0.5*nu*nu*globs.myTimeline[g] )
+        myVarY[idx2d(i, j, myVarYCols)] = 
+                            exp(2.0*(  alpha*log(myX[i])
+                                      + myY[j]
+                                      - 0.5*nu*nu*myTimeline[g] )
                                 );
     }
 }

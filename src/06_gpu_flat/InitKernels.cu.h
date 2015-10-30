@@ -83,8 +83,8 @@ void initGridWrapper(PrivGlobs* globs, const unsigned outer,
     { //timeline
         x = numT;
         dimx = ceil( ((float)x) / TVAL );
-        dimy = ceil( ((float)y) / TVAL );
-        dim3 block(TVAL,TVAL,1), grid(dimx,dimy,1);
+        dimy = ceil( ((float)y) );
+        dim3 block(TVAL,1,1), grid(dimx,dimy,1);
 
         REAL* d_myTimeline;
         unsigned myTimelineSize = globs[0].myTimelineSize;
@@ -100,8 +100,8 @@ void initGridWrapper(PrivGlobs* globs, const unsigned outer,
     { //myX
         x = numX;
         dimx = ceil( ((float)x) / TVAL );
-        dimy = ceil( ((float)y) / TVAL );
-        dim3 block(TVAL,TVAL,1), grid(dimx,dimy,1);
+        dimy = ceil( ((float)y) );
+        dim3 block(TVAL,1,1), grid(dimx,dimy,1);
 
         REAL* d_myX;
         unsigned myXsize = globs[0].myXsize;
@@ -118,8 +118,8 @@ void initGridWrapper(PrivGlobs* globs, const unsigned outer,
     { //myY
         x = numY;
         dimx = ceil( ((float)x) / TVAL );
-        dimy = ceil( ((float)y) / TVAL );
-        dim3 block(TVAL,TVAL,1), grid(dimx,dimy,1);
+        dimy = ceil( ((float)y) );
+        dim3 block(TVAL,1,1), grid(dimx,dimy,1);
 
         REAL* d_myY;
         unsigned myYsize = globs[0].myYsize;
@@ -135,7 +135,8 @@ void initGridWrapper(PrivGlobs* globs, const unsigned outer,
 
 //2d kernel.
 __global__ void kernelInitOperator(REAL* x, REAL* Dxx, const unsigned outer,
-                                   const unsigned n, const unsigned DxxCols
+                                   const unsigned n, const unsigned DxxCols,
+                                   const unsigned DxxSize
 ){
     //const unsigned int i = threadIdx.x + blockIdx.x*blockDim.x;
     int ii = blockIdx.x * blockDim.x;//numX
@@ -147,7 +148,8 @@ __global__ void kernelInitOperator(REAL* x, REAL* Dxx, const unsigned outer,
 
     if(j >= outer)
         return;
-    Dxx = &Dxx[j*DxxCols];
+
+    Dxx = &Dxx[j*DxxSize];
     x = &x[j*n];
     if(i == 0){
         Dxx[0] =  0.0;
@@ -205,48 +207,50 @@ __global__ void kernelInitOperator(REAL* x, REAL* Dxx, const unsigned outer,
 // }
 
 void initOperatorWrapper(PrivGlobs* globs, const unsigned outer){
-    int x = globs[0].myXsize;
+    int x;
     const int y = outer;
 
     {
-        const int dimx = ceil( ((float)x) / TVAL );
-        const int dimy = ceil( ((float)y) / TVAL );
-        dim3 block(TVAL,TVAL,1), grid(dimx,dimy,1);
-    
         REAL* d_myDxx, *d_myX;
         unsigned myDxxCols = globs[0].myDxxCols;
         unsigned myDxxSize = globs[0].myDxxRows*myDxxCols;
         unsigned myXsize = globs[0].myXsize;
+
+        x = myXsize;
+        const int dimx = ceil( ((float)x) / TVAL );
+        const int dimy = ceil( ((float)y));
+        dim3 block(TVAL,1,1), grid(dimx,dimy,1);
+    
     
         globToDevice(globs, outer, myDxxSize, &d_myDxx, 7);
         globToDevice(globs, outer, myXsize, &d_myX, 1);
     
         //kernelInitOperator<<< grid, block>>>(d_myDxx, myDxxSize, outer, choice);
         kernelInitOperator<<< grid, block>>>(d_myX, d_myDxx, outer, myXsize, 
-                                             myDxxCols);
+                                             myDxxCols, myDxxSize);
         cudaThreadSynchronize();
         globFromDevice(globs, outer, myDxxSize, d_myDxx, 7);
     }
     {
-        x = globs[0].myYsize;
-        const int dimx = ceil( ((float)x) / TVAL );
-        const int dimy = ceil( ((float)y) / TVAL );
-        dim3 block(TVAL,TVAL,1), grid(dimx,dimy,1);
-
         REAL* d_myDyy, *d_myY;
         unsigned myDyyCols = globs[0].myDyyCols;
         unsigned myDyySize = globs[0].myDyyRows*myDyyCols;
         unsigned myYsize = globs[0].myYsize;
 
+        x = myYsize;
+        const int dimx = ceil( ((float)x) / TVAL );
+        const int dimy = ceil( ((float)y));
+        dim3 block(TVAL,1,1), grid(dimx,dimy,1);
 
-        globToDevice(globs, outer, myDyySize, &d_myDyy, 7);
-        globToDevice(globs, outer, myYsize, &d_myY, 1);
+
+        globToDevice(globs, outer, myDyySize, &d_myDyy, 8);
+        globToDevice(globs, outer, myYsize, &d_myY, 2);
 
         //kernelInitOperator<<< grid, block>>>(d_myDxx, myDxxSize, outer, choice);
         kernelInitOperator<<< grid, block>>>(d_myY, d_myDyy, outer, myYsize, 
-                                             myDyyCols);
+                                             myDyyCols, myDyySize);
         cudaThreadSynchronize();
-        globFromDevice(globs, outer, myDyySize, d_myDyy, 7);
+        globFromDevice(globs, outer, myDyySize, d_myDyy, 8);
     }
 }
 
@@ -257,7 +261,8 @@ void initOperatorWrapper(PrivGlobs* globs, const unsigned outer){
 //y = max(myX.size, numT)
 //z = max(y, myY.size)
 __global__ void kernelSetPayoff(REAL* myX, REAL* myResult, unsigned myXsize, 
-                                unsigned myYsize, unsigned myResultCols,
+                                unsigned myYsize, unsigned myResultCols, 
+                                unsigned myResultSize,
                                 REAL* payoff, const unsigned outer
 ){
     int ii = blockIdx.x * blockDim.x;//numX
@@ -274,20 +279,14 @@ __global__ void kernelSetPayoff(REAL* myX, REAL* myResult, unsigned myXsize,
         return;
 
     REAL strike = 0.001*k;
-    if(i < myXsize){
+    myResult = &myResult[k*myResultSize];
+    myX = &myX[k*myXsize];
+    if(i < myXsize){ //TODO make payoff in seperate kernel to save numY computations?
         unsigned int p = idx2d(i, k, outer);
-        payoff[p] = max(myX[i]-strike, (REAL)0.0);
+        //payoff[p] = max(myX[i]-strike, (REAL)0.0);
         if(j < myYsize)
-            myResult[idx2d(i, j, myResultCols)] = payoff[p];
+            myResult[idx2d(i, j, myResultCols)] = max(myX[i]-strike, (REAL)0.0);//payoff[p];
     }
-
-    //PrivGlobsCuda globs = globsList[k];
-    // if(i < globs.myXsize){
-    //     unsigned int p = idx2d(i, k, outer);
-    //     payoff[p] = max(globs.myX[i]-strike, (REAL)0.0);
-    //     if(j < globs.myYsize)
-    //         globs.myResult[idx2d(i, j, globs.myResultCols)] = payoff[p];
-    // }
 }
 
 void setPayoffWrapper(PrivGlobs* globs, const unsigned outer, 
@@ -315,7 +314,8 @@ void setPayoffWrapper(PrivGlobs* globs, const unsigned outer,
     globToDevice(globs, outer, myResultSize, &d_myResult, 4);
 
     kernelSetPayoff<<< grid, block>>>(d_myX, d_myResult, myXsize, myYsize, 
-                                      myResultCols, payoff, outer);
+                                      myResultCols, myResultSize, payoff, 
+                                      outer);
     cudaThreadSynchronize();
     globFromDevice(globs, outer, myResultSize, d_myResult, 4);
 

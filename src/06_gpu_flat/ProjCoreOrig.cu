@@ -6,6 +6,18 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////DEBUGGING//////////////////////
+void printMatrix(REAL* matrix, unsigned int rows, unsigned int cols){
+    printf("Matrix = \n[\n");
+    for(unsigned int i=0; i< rows; ++i){
+        printf("[");
+        for(unsigned int j=0; j< cols; ++j){
+            printf("%.5f, ", matrix[i*cols+j]);
+        }
+        printf("]\n");
+    }
+    printf("]\n");
+}
+
 __global__ void getList(PrivGlobsCuda* globsList, 
                                  REAL* res_out,
                                  const unsigned size,
@@ -50,23 +62,43 @@ __global__ void getList(PrivGlobsCuda* globsList,
 
 
 //wrapper for the kernelUpdate
-void updateWrapper( PrivGlobsCuda* globsList, const unsigned g,
-        const unsigned numX, const unsigned numY, const unsigned outer, 
-        const REAL alpha, const REAL beta, const REAL nu
+void updateWrapper( PrivGlobs* globs, const unsigned g, const unsigned outer, 
+                   const REAL alpha, const REAL beta, const REAL nu
 ){
+    PrivGlobs glob = globs[0];
+    unsigned myXsize = glob.myXsize;
+    unsigned myYsize = glob.myYsize;
+    unsigned myVarXCols = glob.myVarXCols;
+    unsigned myVarXRows = glob.myVarXRows;
+    unsigned myVarYCols = glob.myVarYCols;
+    unsigned myVarYRows = glob.myVarYRows;
+    unsigned myTimelineSize = glob.myTimelineSize;
 
-    //8*8*8 = 512 =< 1024
-    const int x = numX;
-    const int y = numY;
+    const int x = myXsize;
+    const int y = myYsize;
     const int z = outer;
 
     const int dimx = ceil( ((float)x) / TVAL );
     const int dimy = ceil( ((float)y) / TVAL );
-    const int dimz = ceil( ((float)z) / TVAL );
-    dim3 block(TVAL,TVAL,TVAL), grid(dimx,dimy,dimz);
+    const int dimz = z;
+    dim3 block(TVAL,TVAL,1), grid(dimx,dimy,dimz);
 
-    kernelUpdate <<< grid, block>>>(globsList, g, x, y, z, alpha, beta, nu);
+    REAL *d_myVarX, *d_myX, *d_myVarY, *d_myY, *d_myTimeline;
+
+    globToDevice(globs, outer, myXsize, &d_myX, 1);
+    globToDevice(globs, outer, myYsize, &d_myY, 2);
+    globToDevice(globs, outer, myVarXCols*myVarXRows, &d_myVarX, 5);
+    globToDevice(globs, outer, myVarYCols*myVarYRows, &d_myVarY, 6);
+    globToDevice(globs, outer, myTimelineSize, &d_myTimeline, 3);
+
+    kernelUpdate <<< grid, block>>>(d_myVarX, d_myX, d_myVarY, d_myY, 
+                                    d_myTimeline, myXsize, myYsize, myVarXCols, 
+                                    myVarXRows, myVarYCols, myVarYRows, 
+                                    myTimelineSize, g, outer, alpha, beta, 
+                                    nu);
     cudaThreadSynchronize();
+    globFromDevice(globs, outer, myVarXCols*myVarXRows, d_myVarX, 5);
+    globFromDevice(globs, outer, myVarYCols*myVarYRows, d_myVarY, 6);
 }
 
 
@@ -189,60 +221,6 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
                             (globsList, outer, y, yy, aT, bT, cT, numX, numY);
         cudaThreadSynchronize();
     }
-    /////////////////////////////////////////////////
-// {
-//         unsigned s = numX;
-//         unsigned size = s;
-//         unsigned mem_size = size*sizeof(REAL);
-
-//         unsigned num_threads = size;
-//         unsigned block_size = 512;
-//         unsigned int num_blocks = ceil(((float) num_threads) / block_size);
-
-//         REAL *res, *d_res;
-//         cudaMalloc((void**)&d_res, mem_size);
-//         res = (REAL*) malloc(mem_size);
-
-//         getList<<< num_blocks, block_size>>>(globsList, d_res, size, g, uT);
-//         cudaThreadSynchronize();
-
-//         cudaMemcpy(res, d_res, mem_size, cudaMemcpyDeviceToHost);
-
-//         printf("AFTER TRIDAG\n");
-//         printf("res = [\n");
-//         for(unsigned i=0; i < size; i++)
-//             printf("[%d] = %.5f\n", i, res[i]);
-//         printf("\n]\n");
-
-//         //exit(0);
-//     }
-////////////////////////////////////////////////////
-/*
-    {
-        //unsigned s = numX*numY;
-        unsigned size = 3;
-        unsigned mem_size = size*sizeof(REAL);
-
-        unsigned num_threads = size;
-        unsigned block_size = 512;
-        unsigned int num_blocks = ceil(((float) num_threads) / block_size);
-
-        REAL *res, *d_res;
-        cudaMalloc((void**)&d_res, mem_size);
-        res = (REAL*) malloc(mem_size);
-
-        getList<<< num_blocks, block_size>>>(globsList, d_res, size);
-        cudaThreadSynchronize();
-
-        cudaMemcpy(res, d_res, mem_size, cudaMemcpyDeviceToHost);
-
-        printf("\nres = [\n");
-        for(unsigned i=0; i < size; i++)
-            printf("[%d] = %.5f\n", i, res[i]);
-        printf("\n]\n");
-
-        //exit(0);
-    }*/
 
     cudaFree(u);
     cudaFree(uT);
@@ -426,6 +404,100 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
     free(yy);
 }
 
+void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
+                const unsigned numX, const unsigned numY, const unsigned numT, PrivGlobs& globs
+) {
+    // Can be parallelized directly as each iteration writes to independent
+    // globs.myTimeline indices
+    for(unsigned i=0;i<numT;++i)  // par
+        globs.myTimeline[i] = t*i/(numT-1);
+
+    const REAL stdX = 20.0*alpha*s0*sqrt(t);
+    const REAL dx = stdX/numX;
+    globs.myXindex = static_cast<unsigned>(s0/dx) % numX;
+
+    // Can be parallelized directly as each iteration writes to independent
+    // globs.myX indices.
+    for(unsigned i=0;i<numX;++i)  // par
+        globs.myX[i] = i*dx - globs.myXindex*dx + s0;
+
+    const REAL stdY = 10.0*nu*sqrt(t);
+    const REAL dy = stdY/numY;
+    const REAL logAlpha = log(alpha);
+    globs.myYindex = static_cast<unsigned>(numY/2.0);
+
+    // Can be parallelized directly as each iteration writes to independent
+    // globs.myY indices.
+    for(unsigned i=0;i<numY;++i)  // par
+        globs.myY[i] = i*dy - globs.myYindex*dy + logAlpha;
+}
+
+void initOperator(  const REAL *x, unsigned xsize,
+                    REAL* &Dxx, unsigned DxxCols
+) {
+    const unsigned n = xsize;
+
+    REAL dxl, dxu;
+
+    //  lower boundary
+    dxl      =  0.0;
+    dxu      =  x[1] - x[0];
+
+    Dxx[idx2d(0,0,DxxCols)] =  0.0;
+    Dxx[idx2d(0,1,DxxCols)] =  0.0;
+    Dxx[idx2d(0,2,DxxCols)] =  0.0;
+    Dxx[idx2d(0,3,DxxCols)] =  0.0;
+
+    //  standard case
+    // Can be parallelized directly as each iteration writes to independent
+    // Dxx indices. x is only read, so each iteration is independent.
+    // x could be put in shared memory.
+    for(unsigned i=1;i<n-1;i++) // par
+    {
+        dxl      = x[i]   - x[i-1];
+        dxu      = x[i+1] - x[i];
+
+        Dxx[idx2d(i,0,DxxCols)] =  2.0/dxl/(dxl+dxu);
+        Dxx[idx2d(i,1,DxxCols)] = -2.0*(1.0/dxl + 1.0/dxu)/(dxl+dxu);
+        Dxx[idx2d(i,2,DxxCols)] =  2.0/dxu/(dxl+dxu);
+        Dxx[idx2d(i,3,DxxCols)] =  0.0;
+    }
+
+    //  upper boundary
+    dxl        =  x[n-1] - x[n-2];
+    dxu        =  0.0;
+
+    Dxx[idx2d(n-1,0,DxxCols)] = 0.0;
+    Dxx[idx2d(n-1,1,DxxCols)] = 0.0;
+    Dxx[idx2d(n-1,2,DxxCols)] = 0.0;
+    Dxx[idx2d(n-1,3,DxxCols)] = 0.0;
+}
+
+
+void setPayoff(const REAL strike, PrivGlobs& globs )
+{
+    // Assuming globs is local the loop can be parallelized since
+    // - reads independent
+    // - writes independent (not same as read array)
+    // Problem in payoff. Can be put inline (scalar variable), but this results
+    // in myX.size*myY.size mem accesses.
+    // If array expansion, only myX.size+myY.size mem accesses.
+    // TODO: To be determined based on myX.size and myY.size.
+    // Small dataset= NUM_X = 32 ; NUM_Y = 256
+    // 8192 vs 288 -- array expansion is preferable.
+
+    // Array expansion **DONE.
+    REAL payoff[globs.myXsize];
+    for(unsigned i=0;i<globs.myXsize;++i)
+        payoff[i] = max(globs.myX[i]-strike, (REAL)0.0);
+
+    // Already coalesced.
+    for(unsigned i=0;i<globs.myXsize;++i) { // par
+        for(unsigned j=0;j<globs.myYsize;++j) // par
+            globs.myResult[idx2d(i,j,globs.myResultCols)] = payoff[i];
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////
 
 
@@ -496,13 +568,16 @@ void   run_GPU(
 
 
 
-printf("wtf\n");
     init(globs, outer, s0, alpha, nu, t, numX, numY, numT);
-printf("wtf2\n");
+    PrivGlobs glob = globs[8];
+    //printMatrix(glob.myDyy, glob.myDyyRows, glob.myDyyCols);
+    //printMatrix(glob.myDxx, glob.myDxxRows, glob.myDxxCols);
+    //printMatrix(glob.myTimeline, glob.myTimelineSize, 1);
+    //printMatrix(glob.myY, glob.myYsize, 1);
+    //printMatrix(glob.myResult, glob.myResultRows, glob.myResultCols);
 
-
-        // for(int g = numT-2;g>=0;--g){ //seq
-    //     updateWrapper(globsList, g, numX, numY, outer, alpha, beta, nu);
+    // for(int g = numT-2;g>=0;--g){ //seq
+    //     updateWrapper(globsList, g, outer, alpha, beta, nu);
     //     rollback(i, globs[j]);
     //     //rollbackWrapper(globsList, g, outer, numX, numY);
     // }
@@ -513,8 +588,9 @@ printf("wtf2\n");
 
 
     for(int i = numT-2;i>=0;--i){ //seq
+        updateWrapper(globs, i, outer, alpha, beta, nu);
         for( unsigned j = 0; j < outer; ++ j ) { //par
-            updateParams(i,alpha,beta,nu,globs[j]);
+            // updateParams(i,alpha,beta,nu,globs[j]);
             rollback(i, globs[j]);
         }
     }
@@ -522,19 +598,6 @@ printf("wtf2\n");
     for( unsigned j = 0; j < outer; ++ j ) { //par
         res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,globs[j].myResultCols)];
     }
-
-
-
-    // for(int i = numT-2;i>=0;--i){ //seq
-    //     for( unsigned j = 0; j < outer; ++ j ) { //par
-    //         updateParams(i,alpha,beta,nu,globs[j]);
-    //         rollback(i, globs[j]);
-    //     }
-    // }
-    // // parallel assignment of results.
-    // for( unsigned j = 0; j < outer; ++ j ) { //par
-    //     res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,globs[j].myResultCols)];
-    // }
 }
 
 
@@ -625,34 +688,7 @@ void   run_GPU(
     }
     getResultsWrapper(globsList, outer, res);
 
-///////////////////////////////////////////////////
-// {
-//         //unsigned s = numX*numY;
-//         unsigned size = 4;
-//         unsigned mem_size = size*sizeof(REAL);
 
-//         unsigned num_threads = size;
-//         unsigned block_size = 512;
-//         unsigned int num_blocks = ceil(((float) num_threads) / block_size);
-
-//         REAL *res, *d_res;
-//         cudaMalloc((void**)&d_res, mem_size);
-//         res = (REAL*) malloc(mem_size);
-
-//         getList<<< num_blocks, block_size>>>(globsList, d_res, size);
-//         cudaThreadSynchronize();
-
-//         cudaMemcpy(res, d_res, mem_size, cudaMemcpyDeviceToHost);
-
-//         printf("\nres = [\n");
-//         for(unsigned i=0; i < size; i++)
-//             printf("[%d] = %.5f\n", i, res[i]);
-//         printf("\n]\n");
-
-//         //exit(0);
-//     }
-
-//////////////////////////////////////////////////////
 }
 */
 
