@@ -1,0 +1,52 @@
+\section{Benchmarks}
+
+
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{r|r|r|r}
+                             &  Small Dataset & Medium Dataset &    Large Dataset \\ \hline
+        Sequential Handout   & $2242717\mu s$ & $4925513\mu s$ & $244242016\mu s$ \\
+        OpenMP Handout       &  $204197\mu s$ &  $323792\mu s$ &  $10555286\mu s$ \\
+        OpenMP + Preperation & $1593800\mu s$ & $1802730\mu s$ &  $24765850\mu s$ \\
+        OpenMP + Flattening  & $1411000\mu s$ & $1826789\mu s$ &  $20222463\mu s$ \\
+        CUDA                 &                &                &             
+    \end{tabular}
+    \caption{Benchmark results for running the different iteration of the code
+        on each of the datasets. All times are an average of 5 runs measured in
+        microseconds.}
+    \label{tab:benchmarks}
+\end{table}
+
+
+
+%%%%%%%% BENCHMARK DATA %%%%%%%%
+
+
+%%%%% SEQUENTIAL HANDOUT
+%%% SMALL  % 2105254+2151681+2142690+2639859+2174101 WRITTEN
+%%% MEDIUM % 4443326+4430587+4444841+5651892+5656919 WRITTEN
+%%% LARGE  % 190664573+197486649+192104500+192104500+217292287+231557573 WRITTEN
+
+%%%%% OPENMP HANDOUT
+%%%%% 00_HandoutImpl
+%%% SMALL  % 190505+183517+230618+222014+194331 WRITTEN
+%%% MEDIUM % 287590+318034+365399+340666+307275 WRITTEN
+%%% LARGE  % 10343945+10395789+11147729+10462171+10426797 WRITTEN
+
+%%%%% OPENMP PREPPED
+%%%%% 02_HandoutExpanded
+%%% SMALL  % 1609894+1572326+1629429+1544463+1612890 WRITTEN
+%%% MEDIUM % 1974435+1759373+1690479+1744996+1844369 WRITTEN
+%%% LARGE  % 24965604+24570208+24983224+24829709+24480505 WRITTEN
+
+%%%%% OPENMP FLATTENED
+%%%%% 04_FlatArrayImpl
+%%% SMALL  % 1347727+1456623+1410288+1409993+1430370 WRITTEN
+%%% MEDIUM % 1958594+1817759+1856793+1703780+1797023 WRITTEN
+%%% LARGE  % 20254772+20261447+20310689+20166920+20118490 WRITTEN
+
+%%%%% FULL CUDA
+%%% SMALL  %
+%%% MEDIUM %
+%%% LARGE  %

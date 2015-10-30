@@ -64,7 +64,7 @@
     stringstyle=\color{string},
 }
 
-\title{\textbf{Final Project Report\\ Programming Massively Parallel Hardware 2015}
+\title{\textbf{Final Project Report\\ Programming Massively Parallel Hardware 2015}}
 \author
 {
     Martin Jørgensen \\
@@ -103,19 +103,12 @@
 % så vi bør vente med CUDA-transformation til aller sidst.
 
 
-
-
-
-\section{Benchmarks}
-
-\subsection{CPU benchmark}
-Benchmark on non-optimized code, CPU test:
-With CPU argument and privatization of strike and PrivGlobs.
-2291156 single cpu kernel local machine
-907715 parallel 4 cpu kernels local machine
-factor 20 improvement.
-
-
+\input{introduction} % Introduction... Duh.
+\input{flattening}   % A word about how/why we flattened all the datastructures to simple arrays.
+\input{cudaprep}     % How we prepared the code for parallelization using loop interchange, array expansion and so forth.
+\input{cuda}         % How we transformed the code into CUDA and what choices where made and how.
+\input{benchmarks}   % Results when running the different data sizes for each version using different datasets.
+\input{conclusion}   % The final, epic conclusion.
 
 
 %%\appendix
