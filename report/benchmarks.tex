@@ -1,7 +1,10 @@
 \section{Benchmarks}
-Due to the system not being fully converted to CUDA, specifically the essential and heavy rollback part, the CUDA implementation runs much slower than its OpenMP counter parts. This is due to rollback is not parallelized in any way and also a lot of copying memory back and forth to between the host and device memory.
 
-All the solutions validates on all input.
+Due to the system not being fully converted to CUDA, specifically the essential
+and heavy rollback part, the CUDA implementation runs much slower than its
+OpenMP counter parts. This is due to rollback is not parallelized in any way and
+also a lot of copying memory back and forth to between the host and device
+memory. All the solutions validates on all input.
 
 \begin{table}[H]
     \centering
@@ -11,13 +14,28 @@ All the solutions validates on all input.
         OpenMP Handout       &  $204197\mu s$ &  $323792\mu s$ &  $10555286\mu s$ \\
         OpenMP + Preperation & $1593800\mu s$ & $1802730\mu s$ &  $24765850\mu s$ \\
         OpenMP + Flattening  & $1411000\mu s$ & $1826789\mu s$ &  $20222463\mu s$ \\
-        CUDA                 & $2744045\mu s$ & $4329038\mu s$ & $129250226\mu s$ \\
+        CUDA (Unfinished)    & $2744045\mu s$ & $4329038\mu s$ & $129250226\mu s$ \\
     \end{tabular}
     \caption{Benchmark results for running the different iteration of the code
         on each of the datasets. All times are an average of 5 runs measured in
         microseconds.}
     \label{tab:benchmarks}
 \end{table}
+
+Table \ref{tab:benchmarks} shows the the time it takes for each version of the
+program. The fastest version of the program we had was the OpenMP version of
+the handout. It is expected that the OpenMP version of the handout is faster
+than our rewritten versions since they are being written to increase the level
+of parallelism we can achieve with CUDA during a later rewrite, and not for
+using OpenMP. Our flattened version of the code (where all 1D \& 2D vectors were
+replaced with flat arrays) performed the second best for both the large and
+small dataset.
+
+Our unfinished CUDA implementation performs worse than the sequential version on
+the small dataset due to the significant overhead in allocating and copying to
+and from device memory, but as the size of the dataset increases, that overhead
+becomes less and less significant and we see that it performs better than the
+sequential solution even though the rollback phase is still sequential.
 
 
 
