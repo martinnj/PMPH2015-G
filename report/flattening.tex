@@ -1,24 +1,24 @@
-\section{Datastructure Flattening}
+\section{Data structure Flattening}
 
-In order to run the code efficiently on the GPGPU we had to start with 2 steps:
+In order to run the code efficiently on the GPU we had to start with 2 steps:
 \begin{enumerate*}
 	\item Flatten all 2D structures (vectors in vectors) to flat versions.
     \item Replace all \texttt{std::vector} occurrences with C arrays.
 \end{enumerate*}
 
-The first step is done to simplify the datastructures we pass back and forth
-and minimize the number of pointer traversals needed to look up values. The
+The first step was done to simplify the datastructures we pass back and forth
+and minimize the number of pointer traversals needed to look up values (and thus also increasing performance). The
 second step is needed because CUDA does not support the STL and thus we can't
-have usage of vectors in our device code. 
+have usage of vectors in our device code.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Flattenening 2D vectors}
 
 In order to flatten the 2D vectors in the \texttt{PrivGlobs} structure each
 2D vector (matrix) was replaced with a single vector where the length would then
-be extended to contain all the elements of the matrix. In order to not loose
+be extended to contain all the elements of the matrix. In order to not lose
 the information about the dimensions which could previusly be obtained by
-calling the \texttt{size()} function on the root vector or a row two variables
+calling the \texttt{size()} function on the vector, variables
 where added to hold the information. Figure \ref{code:privglobsflatten} shows
 the translation for the \texttt{myResult} part of the datastructure. Technically
 the number of rows is still contained in \texttt{myResult.size()}, but since we
@@ -52,13 +52,9 @@ this->myResultCols = numY;
 \label{code:privglobsflatten}
 \end{figure}
 
-In order for the code that utilized these 2D vectors to still work we had to
-implement a method that would allow to to calculate the offset into the one
-dimensional vector that corresponded to a coordinate in the 2D vector. The code
-shown in Figure \ref{code:idx2d} shows a function that when given a coordinate
-into a matrix and the number of columns/width of the matrix will calculate the
-linear offset into our flat vector version.
+To keep indexing simple, a method calculating the index of the flat 2D vectors was created.
 
+The code shown in Figure \ref{code:idx2d}.
 \begin{figure}[H]
     \begin{lstlisting}
 unsigned idx2d(unsigned row, unsigned col, unsigned width) {
@@ -69,9 +65,9 @@ unsigned idx2d(unsigned row, unsigned col, unsigned width) {
     \label{code:idx2d}
 \end{figure}
 
-An example of how code was altered from using the 2D vectors to using our flat
+An example of how code was altered from using 2D vectors to using flat
 vectors can be seen in Figure \ref{code:2dto1dcoord}. The surrounding loops are
-included to give context to the $i$ and $j$ variables, the figure also shows how
+included to give context to the $i$ and $j$ variables. The figure also shows how
 the new column and row information is retrieved as opposed to using the
 \texttt{size()} function.
 
@@ -119,8 +115,7 @@ void initOperator(  const vector<REAL> \&x, vector<vector<REAL> > \&Dxx );} to
 Replacing the \texttt{vector} datastrcutures with arrays was rather simple since
 much of the preparation such as shifting from 2D to 1D coordinates and creating
 the needed extra data such as row and column numbers were done in the previus
-step. The first part of this change is changing \texttt{PrivGlobs} as shown in
-Figure \ref{code:privglobsv2a}.
+step. The first part of this was changing \texttt{PrivGlobs} to contain only arrays instead of vectors, as shown in Figure \ref{code:privglobsv2a}.
 
 \begin{figure}[H]
     \begin{minipage}{.45\textwidth}
@@ -150,7 +145,7 @@ this->myResultCols = numY;
     \label{code:privglobsv2a}
 \end{figure}
 
-The second part is to change the function signatures around the code to use
+The second part was to change the function signatures around the code to use
 \texttt{REAL*} instead of \texttt{vector<REAL>}, if we again use
 \texttt{initOperator} as an example we change from \texttt{void initOperator(
 const vector<REAL> \&x, unsgined xSize, vector<REAL> \&Dxx, unsigned DxxCols );}
