@@ -1,1 +1,110 @@
 \subsection{Datastructure Flattening}
+
+In order to run the code efficiently on the GPGPU we had to start with 2 steps:
+\begin{enumerate*}
+	\item Flatten all 2D structures (vectors in vectors) to flat versions.
+    \item Replace all \texttt{std::vector} occurrences with C arrays.
+\end{enumerate*}
+
+The first step is done to simplify the datastructures we pass back and forth
+and minimize the number of pointer traversals needed to look up values. The
+second step is needed because CUDA does not support the STL and thus we can't
+have usage of vectors in our device code. 
+
+\subsection{Flattenening 2D vectors}
+
+In order to flatten the 2D vectors in the \texttt{PrivGlobs} structure each
+2D vector (matrix) was replaced with a single vector where the length would then
+be extended to contain all the elements of the matrix. In order to not loose
+the information about the dimensions which could previusly be obtained by
+calling the \texttt{size()} function on the root vector or a row two variables
+where added to hold the information. Figure \ref{code:privglobsflatten} shows
+the translation for the \texttt{myResult} part of the datastructure. Technically
+the number of rows is still contained in \texttt{myResult.size()}, but since we
+will replace the vectors with arrays in the next subsection, this counter was
+added right away.
+
+\begin{figure}[H]
+\begin{minipage}{.45\textwidth}
+\begin{lstlisting}
+vector<vector<REAL> > myResult; // [numX][numY]
+//...
+this->myResult.resize(numX);
+for(unsigned i=0;i<numX;++i) {
+    this->myResult[i].resize(numY);
+}
+\end{lstlisting}
+\end{minipage}\hfill
+\begin{minipage}{.45\textwidth}
+\begin{lstlisting}
+vector<REAL> myResult; // [numX][numY]
+unsigned myResultRows;
+unsigned myResultCols;
+//...
+this->myResult.resize(numX*numY);
+this->myResultRows = numX;
+this->myResultCols = numY;
+\end{lstlisting}
+\end{minipage}
+\caption{Left: Sample of the original \texttt{PrivGlobs} structure that shows a
+2D vector. Right: The flattened structure and new additional information.}
+\label{code:privglobsflatten}
+\end{figure}
+
+In order for the code that utilized these 2D vectors to still work we had to
+implement a method that would allow to to calculate the offset into the one
+dimensional vector that corresponded to a coordinate in the 2D vector. The code
+shown in Figure \ref{code:idx2d} shows a function that when given a coordinate
+into a matrix and the number of columns/width of the matrix will calculate the
+linear offset into our flat vector version.
+
+\begin{figure}[H]
+    \begin{lstlisting}
+unsigned idx2d(unsigned row, unsigned col, unsigned width) {
+    return row*width+col;
+}
+    \end{lstlisting}
+    \caption{The 2D offset calculation function.}
+    \label{code:idx2d}
+\end{figure}
+
+An example of how code was altered from using the 2D vectors to using our flat
+vectors can be seen in Figure \ref{code:2dto1dcoord}. The surrounding loops are
+included to give context to the $i$ and $j$ variables, the figure also shows how
+the new column and row information is retrieved as opposed to using the
+\texttt{size()} function.
+
+%%% From setPayoff()
+\begin{figure}[H]
+    \begin{minipage}{.45\textwidth}
+        \begin{lstlisting}
+for(unsigned i=0 ;
+    i < globs.myX.size() ;
+    ++i) {
+    for(unsigned j=0 ;
+        j<globs.myY.size() ;
+        ++j) 
+        globs.myResult[i][j] = payoff[i];
+}
+        \end{lstlisting}
+    \end{minipage}\hfill
+    \begin{minipage}{.45\textwidth}
+        \begin{lstlisting}
+for(unsigned i=0 ;
+    i < globs.myXsize ;
+    ++i) {
+    for(unsigned j=0 ;
+        j < globs.myYsize ;
+        ++j) 
+        globs.myResult[idx2d(i,j,globs.myResultCols)] = payoff[i];
+}
+        \end{lstlisting}
+    \end{minipage}
+    \caption{Left: The original way to access the 2D structure. Right: The how
+    to access the flattened version. The example is from the
+    \texttt{setPayoff} function.}
+    \label{code:2dto1dcoord}
+\end{figure}
+
+
+\subsection{Replacing vectors with arrays}
