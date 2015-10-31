@@ -1,6 +1,8 @@
 \section{Benchmarks}
 Due to the system not being fully converted to CUDA, specifically the essential and heavy rollback part, the CUDA implementation runs much slower than its OpenMP counter parts. This is due to rollback is not parallelized in any way and also a lot of copying memory back and forth to between the host and device memory.
 
+All the solutions validates on all input.
+
 \begin{table}[H]
     \centering
     \begin{tabular}{r|r|r|r}
