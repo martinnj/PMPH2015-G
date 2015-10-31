@@ -65,9 +65,10 @@ void cpListSeq(REAL** h_out, REAL* d_in, const unsigned size,
     printf("cpListSeq2\n");
 
     cudaMemcpy(tmp, d_in, mem_size, cudaMemcpyDeviceToHost);
+    tmp = &tmp[index*size];
     printf("cpListSeq3\n");
     for(unsigned i=0; i<size; i++){
-        (*h_out)[i] = tmp[idx2d(index,i,size)];
+        (*h_out)[i] = tmp[i];
     }
     free(tmp);
 }
@@ -184,17 +185,17 @@ void rollbackWrapper(PrivGlobs* globs, const unsigned g,
                                          u, uT, v, y, 
                                          a, b, c, aT, bT, cT
                                         );
-    cudaThreadSynchronize();
+    // cudaThreadSynchronize();
 
-    transpose3dTiled<TVAL><<< grid, block >>>(uT, u, numY, numX);
-    cudaThreadSynchronize();
+    // transpose3dTiled<TVAL><<< grid, block >>>(uT, u, numY, numX);
+    // cudaThreadSynchronize();
 
-    transpose3dTiled<TVAL><<< grid, block >>>(aT, a, numX, numY);
-    cudaThreadSynchronize();
-    transpose3dTiled<TVAL><<< grid, block >>>(bT, b, numX, numY);
-    cudaThreadSynchronize();
-    transpose3dTiled<TVAL><<< grid, block >>>(cT, c, numX, numY);  
-    cudaThreadSynchronize();
+    // transpose3dTiled<TVAL><<< grid, block >>>(aT, a, numX, numY);
+    // cudaThreadSynchronize();
+    // transpose3dTiled<TVAL><<< grid, block >>>(bT, b, numX, numY);
+    // cudaThreadSynchronize();
+    // transpose3dTiled<TVAL><<< grid, block >>>(cT, c, numX, numY);  
+    // cudaThreadSynchronize();
 
 
 ////sequential part
@@ -218,23 +219,29 @@ void rollbackWrapper(PrivGlobs* globs, const unsigned g,
         REAL dtInv = 1.0/(glob.myTimeline[g+1]-glob.myTimeline[g]);
 
         printf("\nbefore cpListSeq\n");
-        cpListSeq(&as, a, numY*numX, outer, k);
-        printf("a\n");
-        cpListSeq(&bs, b, numY*numX, outer, k);
-        cpListSeq(&cs, c, numY*numX, outer, k);
+        cpListSeq(&aTs, aT, numY*numX, outer, k);
+        cpListSeq(&bTs, bT, numY*numX, outer, k);
+        cpListSeq(&cTs, cT, numY*numX, outer, k);
 
         // cpListSeq(&aTs, aT, numY*numX, outer, k);
         // cpListSeq(&bTs, bT, numY*numX, outer, k);
         // cpListSeq(&cTs, cT, numY*numX, outer, k);
 
-        cpListSeq(&us, u, numY*numX, outer, k);
+        cpListSeq(&uTs, uT, numY*numX, outer, k);
         // cpListSeq(&uTs, uT, numY*numX, outer, k);
         // cpListSeq(&vs, v, numY*numX, outer, k);
         // cpListSeq(&ys, y, numY*numX, outer, k);
 
         //cpListSeq(&yys, yy, numY, outer, k);
 
+        printMatrix(as, numY, numX);
+
         printf("\nafter cpListSeq\n");
+
+        transpose2d(uTs, &us, numY, numX);
+        transpose2d(aTs, &as, numY, numX);
+        transpose2d(bTs, &bs, numY, numX);
+        transpose2d(cTs, &cs, numY, numX);
 
         for(j=0;j<numY;j++) { // par
             // h ere yys should have size [numX]
@@ -246,9 +253,9 @@ void rollbackWrapper(PrivGlobs* globs, const unsigned g,
         for(i=0;i<numX;i++) { // par
             // parallelizable via loop distribution / array expansion.
             for(j=0;j<numY;j++) { // par  // here as, bs, cs should have size [numY]
-                aTs[idx2d(i,j,numY)] =       - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,0,globs.myDyyCols)]);
-                bTs[idx2d(i,j,numY)] = dtInv - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,1,globs.myDyyCols)]);
-                cTs[idx2d(i,j,numY)] =       - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,2,globs.myDyyCols)]);
+                aTs[idx2d(i,j,numY)] =       - 0.5*(0.5*glob.myVarY[idx2d(i,j,glob.myVarYCols)]*glob.myDyy[idx2d(j,0,glob.myDyyCols)]);
+                bTs[idx2d(i,j,numY)] = dtInv - 0.5*(0.5*glob.myVarY[idx2d(i,j,glob.myVarYCols)]*glob.myDyy[idx2d(j,1,glob.myDyyCols)]);
+                cTs[idx2d(i,j,numY)] =       - 0.5*(0.5*glob.myVarY[idx2d(i,j,glob.myVarYCols)]*glob.myDyy[idx2d(j,2,glob.myDyyCols)]);
             }
         }
         transpose2d(aTs, &as, numY, numX);
@@ -271,8 +278,8 @@ void rollbackWrapper(PrivGlobs* globs, const unsigned g,
 
             tridagPar(&aTs[idx2d(i,0,numY)], &bTs[idx2d(i,0,numY)],
                       &cTs[idx2d(i,0,numY)], &ys[idx2d(i,0,numY)], numY,
-                      &globs.myResult[idx2d(i,0,globs.myResultCols)],&yys[0]);
-                      //&globs.myResult[idx2d(i,0, globs.myResultCols)],&yys[0]);
+                      &glob.myResult[idx2d(i,0,glob.myResultCols)],&yys[0]);
+                      //&glob.myResult[idx2d(i,0, glob.myResultCols)],&yys[0]);
         }
 
         free(us);
@@ -390,17 +397,17 @@ void rollbackWrapper(PrivGlobs* globs, const unsigned g,
     }
 */
     printf("cuda free\n");
-    // cudaFree(u);
-    // cudaFree(uT);
-    // cudaFree(v);
-    // cudaFree(y);
-    // cudaFree(yy);
-    // cudaFree(a);
-    // cudaFree(b);
-    // cudaFree(c);
-    // cudaFree(aT);
-    // cudaFree(bT);
-    // cudaFree(cT);
+    cudaFree(u);
+    cudaFree(uT);
+    cudaFree(v);
+    cudaFree(y);
+    cudaFree(yy);
+    cudaFree(a);
+    cudaFree(b);
+    cudaFree(c);
+    cudaFree(aT);
+    cudaFree(bT);
+    cudaFree(cT);
 }
 
 
@@ -739,7 +746,7 @@ void   run_GPU(
 
 
     init(globs, outer, s0, alpha, nu, t, numX, numY, numT);
-    PrivGlobs glob = globs[8];
+    //PrivGlobs glob = globs[8];
     //printMatrix(glob.myDyy, glob.myDyyRows, glob.myDyyCols);
     //printMatrix(glob.myDxx, glob.myDxxRows, glob.myDxxCols);
     //printMatrix(glob.myTimeline, glob.myTimelineSize, 1);
@@ -748,10 +755,10 @@ void   run_GPU(
 
     for(int i = numT-2;i>=0;--i){ //seq
         updateWrapper(globs, i, outer, alpha, beta, nu);
-        rollbackWrapper(globs, i, outer, numX, numY);
+        //rollbackWrapper(globs, i, outer, numX, numY);
         for( unsigned j = 0; j < outer; ++ j ) { //par
             // updateParams(i,alpha,beta,nu,globs[j]);
-            // rollback(i, globs[j]);
+            rollback(i, globs[j]);
         }
     }
     printf("printing results\n");
