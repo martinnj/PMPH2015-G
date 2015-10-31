@@ -1,1 +1,18 @@
 \section{Conclusion}
+
+We did not get a full CUDA-implementation to work but only a partly CUDA-translated version with the most important part non-parallelized, namely the \texttt{rollback} loop.
+
+We have in this report attempted to explain both abstractly and concretely via code examples the work process and goals of parallelizing the given system.
+
+This includes flattening the implementation, loop distributing, creating coalesced memory accesses and loop interchanging along with transposing of matrices and moving sequential loops to the outer most, as was the goal of the project.
+
+The benchmarks are incomplete, as the CUDA-version is incomplete. This makes the benchmarks perform considerably worse than the CPU parallel versions. We do not expect this to be the case, had the CUDA-version been fully implemented, and especially not if we had time to optimize it also, e.g. the \texttt{TRIDAG\_SOLVER}.
+
+
+% In this report we explain the ideas behind parallelizing the given system. This was done by first flattening the vectors/arrays of the system. To increase the degree of parallelism, array expansion and privatization of simple non-array variables, which are later transformed into inlined scalar variables, was applied. To further increase the degree of parallelism over the whole system, loop distribution was applied throughout the system from the main loop. To keep memory access coalesced, loops where interchanged where possible and/or matrices where transposed. 
+
+% The system has one inherently sequential loop, in between parallel loops, which was distributed to be the outer loop via array expansions (making the inner arrays a dimension higher) and loop distribution.
+
+% Unfortunately we were unable to complete the programming part. We misused a lot of time on the convertion from the flat sequential program to CUDA kernels, whereby we created a PrivGlob structure completely on CUDA (to omit having to copy arrays to and from the kernels). This however made debugging hell, and after tens of hours debugging without valid results we had to revert back to the flat sequential solution and create kernels one at a time, with the PrivGlobs placed completely in hos memory. We should have had realized this sooner, but alas we where stubborn thinking a valid solutions was right around the next logical error.
+
+% Due to this, we ran out of time before parallelizing the rollback part, which performance wise is also the most essential part. This also means that we have not optimized the given tridag kernel. However, this report should still give the ideas behind parallelizing the system.
