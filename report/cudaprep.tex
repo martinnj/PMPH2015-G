@@ -188,3 +188,75 @@ for(int i = numT-2;i>=0;--i){ //seq
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Memory Coalescing}
+
+Since the GPU reads and writes to memory in chunks the way memory is accecssed
+is very important for speed. Reading the first element from each row of the
+matrix will cause an entire memory chunk to be loaded for each row, if we
+instead transpose the matrix so that each read is for an entire row instead, the
+chunk will contain more data that we actually need. Ensuring memory coalescing
+does not increase the degree og parallelism but it speeds up the code by making
+memory operations faster.
+
+\begin{figure}[H]
+    \begin{lstlisting}
+for(i=0;i<numX;i++) { //par
+    for(j=0;j<numY;j++) { //par
+        u[j][i] = dtInv*globs.myResult[i][j];
+
+        if(i > 0) {
+          u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
+                        * globs.myResult[i-1][j];
+        }
+        u[j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
+                        * globs.myResult[i][j];
+        if(i < numX-1) {
+          u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
+                        * globs.myResult[i+1][j];
+        }
+    }
+}
+    \end{lstlisting}
+    \caption{The first loop of the rollback function. This example is with the
+    2D datastructures in the original handout, not the flat structures created
+    earlier.}
+    \label{code:coal1}
+\end{figure}
+
+An example of this can be seen in Figure \ref{code:coal1} which is the forst
+loop in the \texttt{rollback} function. In this loop, the read operations are
+coalesced as they read from rows at a time, but the writes are for columns. If
+the loops are interchanged we can coales the writes but have uncualesced reads,
+so the solution is to instead transpose $u$, making the writes coalesced.
+
+\begin{figure}[H]
+    \begin{lstlisting}
+for(i=0;i<numX;i++) { //par
+    for(j=0;j<numY;j++) { //par
+
+        uT[idx2d(i,j,numY)] = dtInv*globs.myResult[idx2d(i,j,globs.myResultCols)];
+        if(i > 0) {
+            uT[idx2d(i,j,numY)] += 0.5*( 0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]*globs.myDxx[idx2d(i,0,globs.myDxxCols)] )
+                        * globs.myResult[idx2d(i-1,j,globs.myResultCols)];
+        }
+        uT[idx2d(i,j,numY)]  += 0.5*( 0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]*globs.myDxx[idx2d(i,1,globs.myDxxCols)] )
+                        * globs.myResult[idx2d(i,j,globs.myResultCols)];
+        if(i < numX-1) {
+            uT[idx2d(i,j,numY)] += 0.5*( 0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]*globs.myDxx[idx2d(i,2,globs.myDxxCols)] )
+                        * globs.myResult[idx2d(i+1,j,globs.myResultCols)];
+        }
+    }
+}
+transpose(uT, &u, numY, numX);
+    \end{lstlisting}
+    \caption{The first loop of the rollback function using a transposed $u$ for
+    coalescing writes. This example is from the code after the structures were
+    flattened to simple arrays.}
+    \label{code:coal2}
+\end{figure}
+
+The code in Figure \ref{code:coal2} shows the loops and the following transpose.
+In this way, both reads and writes are coalesced and after the transpose
+operation in the last line, any code can use $u$ as they did before. The
+additional transpose operation does incur an extra cost, but for large matrices
+this cost becomes more an more negligable compared to the speedup in the memory
+system.
