@@ -38,42 +38,42 @@ any shared variables, and the rest of the code (everything inside the
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Array Expansion}
 
-One of the transformatinos we applied to the program was array expansion as
-explained in \cite[Slide 11]{projectslide}. Array expansion essentially adds an
-extra dimension to whatever data you are working with, but works better than
-privatization when parallelizing for a GPU since dynamically allocating memory
-in a CUDA kernel is not possible. If we use the loop from Figure
-\ref{code:openmp1} as an example, we would allocate an array of
-\texttt{PrivGlobs} before starting the loop, and then access each individual
-\texttt{PrivGlobs} for each iteration of the loop, the result would look like
-the code shown in Figure \ref{code:arrayexp1}. Array expansion is used to
-increase the degree of parallelization since we can now run as many threads as
-the loop have iterations.
+One of the transformations we applied to the program was array expansion as
+explained in \cite[Slide 11]{projectslide}. Array expansion adds an extra dimension to the data being worked on corresponding to a surrounding loop. Privatization is an equivalent solution, which works by allocating the data inside the loop, but since dynamically allocating memory in a CUDA kernel is not possible, privatization is not possible.
+However inlining of simple local scalar variables, that is, non-array allocations, is possible and prefferable to array expansion.
+
+An example of a used array expansion on a nested loop is shown in Figure \ref{code:arrayexpansion}. Here, array $a$ is of size $numX$ and is written to with a parallelism degree of $numX$, corresponding to the inner loop. The outer looper is unsafe to parallelize as it would overwrite the same positions on array a before a is used. Array expansion adds the outer loop dimension to the dimension of a, making the outer loop safe to parallelize. Now the degree of parallelism is $numX\cdot numY$.
 
 \begin{figure}[H]
-    \begin{lstlisting}
-PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
-
-for(int i = 0 ; i < outer ; i++) { //par
-    globs[i] = PrivGlobs(numX,numY,numT);
+    \begin{minipage}{.45\textwidth}
+        \begin{lstlisting}
+// a = [numX]
+for(j=0;j<numY;j++) { //seq
+    for(i=0;i<numX;i++) { //par
+        a[i] =  ...
+    }
+    ... //code using a
 }
-
-for( unsigned i = 0; i < outer; ++ i ) { //par
-        REAL strike = 0.001*i;
-        res[i] = value( globs[i], s0, strike, t,
-                    alpha, nu,    beta,
-                    numX,  numY,  numT );
+        \end{lstlisting}
+    \end{minipage}\hfill
+    \begin{minipage}{.45\textwidth}
+        \begin{lstlisting}
+// a = [numY][numX]
+for(j=0;j<numY;j++) { //par
+    for(i=0;i<numX;i++) { //par
+        a[j][i] =  ...
+    }
+    ...//code using a
 }
-    \end{lstlisting}
-    \caption{The outer loop modified to use array expansion instead of
-    privatization.}
-    \label{code:arrayexp1}
+        \end{lstlisting}
+    \end{minipage}
+    \caption{Left: Before the array a expansion. The outer loop is sequential, degree of parallelism is numX Right: The array a after array expansion. The outer loop is now also parallel, makin gthe parallelism numY*numX.}
+    \label{code:arrayexpansion}
 \end{figure}
 
-The code in Figure \ref{code:arrayexp1} is using OpenMP, so the array expansion
-is not strictly needed since it can dynamically allocate memory, but the step is
-done to prepare the code for being translated to CUDA. This transformation is
-applied other places in the code, but this outer loop is the clearest example.
+Privatization would have moved the allocation of a inside the outer loop, thus making each parallel execution of the outer loop create its own, local array a.
+
+This was applied to may arrays in the code, along with the list of globs in run_gpu, arrays a,b,c (along with their transposed counter parts) and y in rollback.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Loop Distribution}
