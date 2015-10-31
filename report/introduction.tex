@@ -1,1 +1,8 @@
 \section{Introduction}
+In this report we explain the ideas behind parallelizing the given system. This was done by flattening the system via array expansion and privatization of non-array variables, which are later transformed into inlined scalar variables. To increase the degree of parallelism, loop distribution was applied. To keep memory access coalesced, loops where interchanged where possible and/or matrices where transposed. 
+
+The system has one inherently sequential loop, in between parallel loops, which was distributed to be the outer loop via array expansions (making the inner arrays a dimension higher) and loop distribution.
+
+Unfortunately we were unable to complete the programming part. We misused a lot of time on the convertion from the flat sequential program to CUDA kernels, whereby we created a PrivGlob structure completely on CUDA (to omit having to copy arrays to and from the kernels). This however made debugging hell, and after tens of hours debugging without valid results we had to revert back to the flat sequential solution and create kernels one at a time, with the PrivGlobs placed completely in hos memory. We should have had realized this sooner, but alas we where stubborn thinking a valid solutions was right around the next logical error.
+
+Due to this, we ran out of time before parallelizing the rollback part, which performance wise is also the most essential part. This also means that we have not optimized the given tridag kernel. However, this report should still give the ideas behind parallelizing the system.
