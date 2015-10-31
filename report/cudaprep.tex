@@ -188,14 +188,14 @@ for(int i = numT-2;i>=0;--i){ //seq
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Memory Coalescing}
+Since the GPU reads and writes to memory in sequential chunks, the way memory is accecssed
+is very important for optimizing speed. Reading/writing an element of an array will cause a whole block of the array to be retrieved to/send from the cache. If following reads/writes are sequentially in memory right after the first, these reads/writes will lead to cache hits rather than cache misses, thus eliminating many reads/writes to/from main memory. In 2D array accesses, if the outer loop iterate on the rows instead of the columns, the memory will be coalesced accessed. This can results in more than twice the number of (main) memory accesses.
 
-Since the GPU reads and writes to memory in chunks the way memory is accecssed
-is very important for speed. Reading the first element from each row of the
-matrix will cause an entire memory chunk to be loaded for each row, if we
-instead transpose the matrix so that each read is for an entire row instead, the
-chunk will contain more data that we actually need. Ensuring memory coalescing
-does not increase the degree og parallelism but it speeds up the code by making
-memory operations faster.
+Ensuring memory coalescing does not increase the degree og parallelism but it speeds up the code by making memory operations faster.
+
+Such a non-coalesced memory access is seen in Figure \ref{code:coal1}, which is the first
+loop in the \texttt{rollback} function. In this loop, the read operations are
+coalesced as they read from rows at a time, but the writes are for columns.
 
 \begin{figure}[H]
     \begin{lstlisting}
@@ -222,11 +222,9 @@ for(i=0;i<numX;i++) { //par
     \label{code:coal1}
 \end{figure}
 
-An example of this can be seen in Figure \ref{code:coal1} which is the forst
-loop in the \texttt{rollback} function. In this loop, the read operations are
-coalesced as they read from rows at a time, but the writes are for columns. If
-the loops are interchanged we can coales the writes but have uncualesced reads,
-so the solution is to instead transpose $u$, making the writes coalesced.
+To solve this, one can either use loop interchange or, where this is not possible, matrix transposition.
+
+If the loops are interchanged then the writes are coalesced, but this results in uncualesced reads. The solution is to instead transpose $u$, making the writes coalesced in the same manner as the reads.
 
 \begin{figure}[H]
     \begin{lstlisting}
@@ -259,4 +257,4 @@ In this way, both reads and writes are coalesced and after the transpose
 operation in the last line, any code can use $u$ as they did before. The
 additional transpose operation does incur an extra cost, but for large matrices
 this cost becomes more an more negligable compared to the speedup in the memory
-system.
+system, especially due to transpose being very parallel (in both dimensions).
