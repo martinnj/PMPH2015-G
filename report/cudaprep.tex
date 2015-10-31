@@ -41,7 +41,7 @@ any shared variables, and the rest of the code (everything inside the
 One of the transformatinos we applied to the program was array expansion as
 explained in \cite[Slide 11]{projectslide}. Array expansion essentially adds an
 extra dimension to whatever data you are working with, but works better than
-privatization when parallelizing for a GPGPU since dynamically allocating memory
+privatization when parallelizing for a GPU since dynamically allocating memory
 in a CUDA kernel is not possible. If we use the loop from Figure
 \ref{code:openmp1} as an example, we would allocate an array of
 \texttt{PrivGlobs} before starting the loop, and then access each individual
@@ -54,13 +54,11 @@ the loop have iterations.
     \begin{lstlisting}
 PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
 
-#pragma omp parallel for default(shared) schedule(static) if(outer>8)
-for(int i = 0 ; i < outer ; i++) {
+for(int i = 0 ; i < outer ; i++) { //par
     globs[i] = PrivGlobs(numX,numY,numT);
 }
 
-#pragma omp parallel for default(shared) schedule(static) if(outer>8)
-for( unsigned i = 0; i < outer; ++ i ) {
+for( unsigned i = 0; i < outer; ++ i ) { //par
         REAL strike = 0.001*i;
         res[i] = value( globs[i], s0, strike, t,
                     alpha, nu,    beta,
@@ -79,3 +77,114 @@ applied other places in the code, but this outer loop is the clearest example.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Loop Distribution}
+
+Another transformation we applied was loop distribution as described in
+\cite[Slide 13]{projectslide}. This optimization is applied when you have an
+outer loop that can be parallelized, with other parallelizable inner loops, that
+have some sequential code between them. The outer loop again provided a good
+example of this when we look into the \texttt{value} function as well. Figure
+\ref{code:predistvalue} shows the \texttt{value} function, it contains some
+function calls and sequential loop.
+
+\begin{figure}[H]
+    \begin{lstlisting}
+REAL   value(   PrivGlobs    globs,
+                const REAL s0,
+                const REAL strike,
+                const REAL t,
+                const REAL alpha,
+                const REAL nu,
+                const REAL beta,
+                const unsigned int numX,
+                const unsigned int numY,
+                const unsigned int numT
+) {
+    initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
+    initOperator(globs.myX,globs.myDxx);
+    initOperator(globs.myY,globs.myDyy);
+
+    setPayoff(strike, globs);
+    for(int i = globs.myTimeline.size()-2;i>=0;--i) {//seq
+        updateParams(i,alpha,beta,nu,globs);
+        rollback(i, globs);
+    }
+
+    return globs.myResult[globs.myXindex][globs.myYindex];
+}
+    \end{lstlisting}
+    \caption{The \texttt{value} function as it was handed out.}
+    \label{code:predistvalue}
+\end{figure}
+
+If we pull the code from the \texttt{value} function out into the outer loop
+directly, it will look like Figure \ref{code:arrayexp2}, since the functions
+\texttt{initGrid} and \texttt{initOperator} as well as \texttt{setPayoff} were
+safe to parallelize we reorganized the loops to the form in Figure
+\ref{code:arrayexp3}.
+
+\begin{figure}[H]
+    \begin{lstlisting}
+PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
+
+for(int i = 0 ; i < outer ; i++) {
+    globs[i] = PrivGlobs(numX,numY,numT);
+}
+
+for( unsigned i = 0; i < outer; ++ i ) { //par
+        REAL strike = 0.001*i;
+        initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
+        initOperator(globs.myX,globs.myDxx);
+        initOperator(globs.myY,globs.myDyy);
+
+        setPayoff(strike, globs);
+
+        for(int j = globs.myTimeline.size()-2;j>=0;--j) //seq
+        {
+            updateParams(j,alpha,beta,nu,globs);
+            rollback(j, globs);
+        }
+
+        res[i] = globs[i].myResult[globs.myXindex][globs.myYindex];
+}
+    \end{lstlisting}
+    \caption{The outer loop after value is expanded into it.}
+    \label{code:arrayexp2}
+\end{figure}
+
+Figure \ref{code:arrayexp3} shows the loops after they were disitributed, this
+transformation allowed us to now run all the init operations in parallel, which
+increased the degree of parallelization. Furthermore it allowed us to
+interchange the sequential inner loop and the parallel outerloop which again
+allowed us top increase the degree of parallelism.
+
+\begin{figure}[H]
+    \begin{lstlisting}
+PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
+#pragma omp parallel for default(shared) schedule(static) if(outer>8)
+for(int i = 0 ; i < outer ; i++) {
+    globs[i] = PrivGlobs(numX,numY,numT);
+}
+
+for( unsigned i = 0; i < outer; ++ i ) { //par
+        initGrid(s0,alpha,nu,t, numX, numY, numT, globs[i]);
+        initOperator(globs[i].myX, globs[i].myXsize, globs[i].myDxx, globs[i].myDxxCols);
+        initOperator(globs[i].myY, globs[i].myYsize, globs[i].myDyy, globs[i].myDyyCols);
+        setPayoff(0.001*i, globs[i]);
+}
+
+// sequential loop distributed.
+for(int i = numT-2;i>=0;--i){ //seq
+    #pragma omp parallel for default(shared) schedule(static) if(outer>8)
+    for( unsigned j = 0; j < outer; ++ j ) { //par
+        updateParams(i,alpha,beta,nu,globs[j]);
+        rollback(i, globs[j]);
+    }
+}
+    \end{lstlisting}
+    \caption{The same code as in \ref{code:arrayexp2} but after the loops are
+    distributed.}
+    \label{code:arrayexp3}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Memory Coalescing}
