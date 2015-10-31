@@ -1,6 +1,5 @@
 \section{Benchmarks}
-
-
+Due to the system not being fully converted to CUDA, specifically the essential and heavy rollback part, the CUDA implementation runs much slower than its OpenMP counter parts. This is due to rollback is not parallelized in any way and also a lot of copying memory back and forth to between the host and device memory.
 
 \begin{table}[H]
     \centering
@@ -10,7 +9,7 @@
         OpenMP Handout       &  $204197\mu s$ &  $323792\mu s$ &  $10555286\mu s$ \\
         OpenMP + Preperation & $1593800\mu s$ & $1802730\mu s$ &  $24765850\mu s$ \\
         OpenMP + Flattening  & $1411000\mu s$ & $1826789\mu s$ &  $20222463\mu s$ \\
-        CUDA                 &                &                &             
+        CUDA                 & $2744045\mu s$ & $4329038\mu s$ & $129250226\mu s$ \\
     \end{tabular}
     \caption{Benchmark results for running the different iteration of the code
         on each of the datasets. All times are an average of 5 runs measured in
