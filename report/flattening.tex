@@ -11,6 +11,7 @@ and minimize the number of pointer traversals needed to look up values. The
 second step is needed because CUDA does not support the STL and thus we can't
 have usage of vectors in our device code. 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Flattenening 2D vectors}
 
 In order to flatten the 2D vectors in the \texttt{PrivGlobs} structure each
@@ -112,6 +113,7 @@ void initOperator(  const vector<REAL> \&x, vector<vector<REAL> > \&Dxx );} to
 \texttt{void initOperator(  const vector<REAL> \&x, unsgined xSize, vector<REAL>
 \&Dxx, unsigned DxxCols );}.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Replacing vectors with arrays}
 
 Replacing the \texttt{vector} datastrcutures with arrays was rather simple since

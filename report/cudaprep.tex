@@ -1,1 +1,81 @@
-\section{CUDA Preperation}
+\section{CUDA Preperation \& OpenMP}
+
+In this step we will cover the transformations we applied to the code on order
+to make it easier to parallelize in the end. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{OpenMP}
+The first task was to use OpenMP to parllelize the outermost loop in
+\texttt{run\_OrigCPU} by adding an OpenMP pragma to it. The resulting loop can
+be seen in Figure \ref{code:openmp1}.
+
+\begin{figure}[H]
+    \begin{lstlisting}
+#pragma omp parallel for default(shared) schedule(static) if(outer>8)
+for( unsigned i = 0; i < outer; ++ i ) {
+    REAL strike = 0.001*i;
+    PrivGlobs    globs(numX, numY, numT);
+    res[i] = value( globs, s0, strike, t,
+                    alpha, nu,    beta,
+                    numX,  numY,  numT );
+}
+    \end{lstlisting}
+    \caption{The outer loop parallelized using OpenMP.}
+    \label{code:openmp1}
+\end{figure}
+
+Originally the declerations of \textit{strike} and \textit{globs} that we see in
+Figure \ref{code:openmp1} was placed outside the loop, but in order to
+parallelize the loop they had to be privatized. If they had stayed outside the
+loop each different value of strike and globs would have been mapped to the same
+memory location and the different threads would be writing to, and reading from
+the same location instead of individual locations. This is needed since the
+values for each iteration of the loop are not the same. The above
+parallelization is safe because no loop iteration (thread) reads or writes to
+any shared variables, and the rest of the code (everything inside the
+\texttt{value} function) is executed sequentially.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Array Expansion}
+
+One of the transformatinos we applied to the program was array expansion as
+explained in \cite[Slide 11]{projectslide}. Array expansion essentially adds an
+extra dimension to whatever data you are working with, but works better than
+privatization when parallelizing for a GPGPU since dynamically allocating memory
+in a CUDA kernel is not possible. If we use the loop from Figure
+\ref{code:openmp1} as an example, we would allocate an array of
+\texttt{PrivGlobs} before starting the loop, and then access each individual
+\texttt{PrivGlobs} for each iteration of the loop, the result would look like
+the code shown in Figure \ref{code:arrayexp1}. Array expansion is used to
+increase the degree of parallelization since we can now run as many threads as
+the loop have iterations.
+
+\begin{figure}[H]
+    \begin{lstlisting}
+PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
+
+#pragma omp parallel for default(shared) schedule(static) if(outer>8)
+for(int i = 0 ; i < outer ; i++) {
+    globs[i] = PrivGlobs(numX,numY,numT);
+}
+
+#pragma omp parallel for default(shared) schedule(static) if(outer>8)
+for( unsigned i = 0; i < outer; ++ i ) {
+        REAL strike = 0.001*i;
+        res[i] = value( globs[i], s0, strike, t,
+                    alpha, nu,    beta,
+                    numX,  numY,  numT );
+}
+    \end{lstlisting}
+    \caption{The outer loop modified to use array expansion instead of
+    privatization.}
+    \label{code:arrayexp1}
+\end{figure}
+
+The code in Figure \ref{code:arrayexp1} is using OpenMP, so the array expansion
+is not strictly needed since it can dynamically allocate memory, but the step is
+done to prepare the code for being translated to CUDA. This transformation is
+applied other places in the code, but this outer loop is the clearest example.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Loop Distribution}
