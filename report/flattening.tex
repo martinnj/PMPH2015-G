@@ -1,4 +1,4 @@
-\subsection{Datastructure Flattening}
+\section{Datastructure Flattening}
 
 In order to run the code efficiently on the GPGPU we had to start with 2 steps:
 \begin{enumerate*}
@@ -74,7 +74,6 @@ included to give context to the $i$ and $j$ variables, the figure also shows how
 the new column and row information is retrieved as opposed to using the
 \texttt{size()} function.
 
-%%% From setPayoff()
 \begin{figure}[H]
     \begin{minipage}{.45\textwidth}
         \begin{lstlisting}
@@ -106,5 +105,52 @@ for(unsigned i=0 ;
     \label{code:2dto1dcoord}
 \end{figure}
 
+Lastly, any functions that have 2D vectors in the signature, such as
+\texttt{iniOperator}, will have to have their signature changed. Using
+\texttt{initOperator} as an example, the change would be from \texttt{
+void initOperator(  const vector<REAL> \&x, vector<vector<REAL> > \&Dxx );} to
+\texttt{void initOperator(  const vector<REAL> \&x, unsgined xSize, vector<REAL>
+\&Dxx, unsigned DxxCols );}.
 
 \subsection{Replacing vectors with arrays}
+
+Replacing the \texttt{vector} datastrcutures with arrays was rather simple since
+much of the preparation such as shifting from 2D to 1D coordinates and creating
+the needed extra data such as row and column numbers were done in the previus
+step. The first part of this change is changing \texttt{PrivGlobs} as shown in
+Figure \ref{code:privglobsv2a}.
+
+\begin{figure}[H]
+    \begin{minipage}{.45\textwidth}
+        \begin{lstlisting}
+vector<REAL> myResult; // [numX][numY]
+unsigned myResultRows;
+unsigned myResultCols;
+//...
+this->myResult.resize(numX*numY);
+this->myResultRows = numX;
+this->myResultCols = numY;
+        \end{lstlisting}
+    \end{minipage}\hfill
+    \begin{minipage}{.45\textwidth}
+        \begin{lstlisting}
+REAL* myResult; // [numX][numY]
+unsigned myResultRows;
+unsigned myResultCols;
+//...
+this->myResult = (REAL*) malloc(sizeof(REAL)*numX*numY);
+this->myResultRows = numX;
+this->myResultCols = numY;
+        \end{lstlisting}
+    \end{minipage}
+    \caption{Left: The flat vector implementation. Right: The array
+    implementation that allows us to transfer everything to the GPGPU device.}
+    \label{code:privglobsv2a}
+\end{figure}
+
+The second part is to change the function signatures around the code to use
+\texttt{REAL*} instead of \texttt{vector<REAL>}, if we again use
+\texttt{initOperator} as an example we change from \texttt{void initOperator(
+const vector<REAL> \&x, unsgined xSize, vector<REAL> \&Dxx, unsigned DxxCols );}
+to \texttt{void initOperator(  const REAL* \&x, unsgined xSize, REAL* \&Dxx,
+unsigned DxxCols );}.
