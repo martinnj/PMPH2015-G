@@ -258,3 +258,5 @@ operation in the last line, any code can use $u$ as they did before. The
 additional transpose operation does incur an extra cost, but for large matrices
 this cost becomes more an more negligable compared to the speedup in the memory
 system, especially due to transpose being very parallel (in both dimensions).
+
+Memory coalescing is applied to all loops and arrays in the system.

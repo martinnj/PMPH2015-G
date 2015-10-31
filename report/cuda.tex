@@ -1,1 +1,14 @@
 \section{CUDA Rewrite}
+The globs run on host memory. We tried to make it all CUDA (i.e. all arrays of the globs lying in device memory), but we could not get it to work. A problem with making it all CUDA is that it is very memory heavy, which might not be prefferable, but as this project was on optimizing only for the small test sample with focus on speed performance and less focus on memory efficiency, we argued that this could be more effecient. This should hovewer have been one of the last things to focus on, after having a running CUDA implementation, thus also making it possible to benchmark versus a glob lying on host memory.
+
+The whole initialization of the globs is translated to CUDA kernels and works. This is placed in the \texttt{InitKernels.cu.h} file. The \texttt{updateParms} part of the sequential loop (before \texttt{rollback}) also runs on CUDA. Both these are parallelized to the outer most parallel loop (that is, until the main sequential loop) with degree of parallelism $outer$. 
+
+All loops are distributed across kernels of their specific parallelism degree.
+
+\texttt{InitKernels.cu.h} contains several kernels, all with a maximum parallelization degree based on their loops, that is, between $outer\cdot numT$ for \texttt{initGritTimeline} to $outer\cdot numX \cdot numY$ for \texttt{setPayoff}.
+
+\texttt{updateParams} is parallel in $outer\cdot numX \cdot numY$ dimensions. 
+
+The kernels for \texttt{rollback} are placed in file \texttt{CoreKernels.cu.h}, but unfortunately contains some bugs. We tried to include them one by one, running the rest sequentially, without success due and time did not allow us to further debug it. But all kernels are created and some of them might even work.
+
+Had time allowed it, we would have also liked to improve the \texttt{TRIDAG_SOLVER} used as tridag kernel in \texttt{rollback}. Here, shared memory is limited and could be optimized e.g. maybe reusing \textit{mat\_sh} for \textit{lin\_sh}, as \textit{lin\_sh} is only used after the last use of \textit{mat\_sh} (so it is pretty straight forward). 
