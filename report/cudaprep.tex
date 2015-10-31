@@ -126,7 +126,7 @@ safe to parallelize we reorganized the loops to the form in Figure
     \begin{lstlisting}
 PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
 
-for(int i = 0 ; i < outer ; i++) {
+for(int i = 0 ; i < outer ; i++) { //par
     globs[i] = PrivGlobs(numX,numY,numT);
 }
 
@@ -160,8 +160,8 @@ allowed us top increase the degree of parallelism.
 \begin{figure}[H]
     \begin{lstlisting}
 PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
-#pragma omp parallel for default(shared) schedule(static) if(outer>8)
-for(int i = 0 ; i < outer ; i++) {
+
+for(int i = 0 ; i < outer ; i++) { //par
     globs[i] = PrivGlobs(numX,numY,numT);
 }
 
