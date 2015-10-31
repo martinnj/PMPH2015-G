@@ -57,6 +57,21 @@ __global__ void getList(PrivGlobsCuda* globsList,
     */
 }
 
+void cpListSeq(REAL** h_out, REAL* d_in, const unsigned size, 
+               const unsigned outer, unsigned index){
+    unsigned mem_size = outer*size*sizeof(REAL);
+    printf("cpListSeq1\n");
+    REAL* tmp = (REAL*) malloc(mem_size);
+    printf("cpListSeq2\n");
+
+    cudaMemcpy(tmp, d_in, mem_size, cudaMemcpyDeviceToHost);
+    printf("cpListSeq3\n");
+    for(unsigned i=0; i<size; i++){
+        (*h_out)[i] = tmp[idx2d(index,i,size)];
+    }
+    free(tmp);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -102,7 +117,7 @@ void updateWrapper( PrivGlobs* globs, const unsigned g, const unsigned outer,
 }
 
 
-void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g, 
+void rollbackWrapper(PrivGlobs* globs, const unsigned g, 
                      const unsigned outer, const unsigned numX, 
                      const unsigned numY
 ){
@@ -138,9 +153,37 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
     // unsigned int num_blocks = (n + (block_size - 1)) / block_size;
     unsigned int sh_mem_size =  TVAL*TVAL;//numY*numX*outer;
 
-    kernelRollback1 <<< grid, block >>> (   globsList, g, outer, 
-                                            u, uT, v, y, 
-                                            a, b, c, aT, bT, cT);
+    REAL *myTimeline, *myVarX, *myVarY, *myResult, *myDxx, *myDyy;
+    PrivGlobs glob = globs[0];
+    unsigned myTimelineSize = glob.myTimelineSize;
+    unsigned myVarXRows = glob.myVarXRows;
+    unsigned myVarXCols = glob.myVarXCols;
+    unsigned myVarYRows = glob.myVarYRows;
+    unsigned myVarYCols = glob.myVarYCols;
+    unsigned myResultRows = glob.myResultRows;
+    unsigned myResultCols = glob.myResultCols;
+    unsigned myDxxRows = glob.myDxxRows;
+    unsigned myDxxCols = glob.myDxxCols;
+    unsigned myDyyRows = glob.myDyyRows;
+    unsigned myDyyCols = glob.myDyyCols;
+
+    globToDevice(globs, outer, myTimelineSize, &myTimeline, 3);
+    globToDevice(globs, outer, myVarXRows*myVarXCols, &myVarX, 5);
+    globToDevice(globs, outer, myVarYRows*myVarYCols, &myVarY, 6);
+    globToDevice(globs, outer, myResultRows*myResultCols, &myResult, 4);
+    globToDevice(globs, outer, myDxxRows*myDxxCols, &myDxx, 7);
+    globToDevice(globs, outer, myDyyRows*myDyyCols, &myDyy, 8);
+
+    //oh the humanity!
+    kernelRollback1 <<< grid, block >>> (myTimeline, myVarX, myVarY, myResult, 
+                                         myDxx, myDyy,
+                                         myTimelineSize, myVarXRows, myVarXCols, 
+                                         myVarYRows, myVarYCols, myResultRows, 
+                                         myResultCols, myDxxRows, myDxxCols, 
+                                         myDyyRows, myDyyCols, g, outer, 
+                                         u, uT, v, y, 
+                                         a, b, c, aT, bT, cT
+                                        );
     cudaThreadSynchronize();
 
     transpose3dTiled<TVAL><<< grid, block >>>(uT, u, numY, numX);
@@ -154,6 +197,119 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
     cudaThreadSynchronize();
 
 
+////sequential part
+    for(unsigned k = 0; k < outer; ++k){
+        unsigned i,j;
+
+        REAL *us = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numX]
+        REAL *uTs = (REAL*) malloc(numX*numY*sizeof(REAL));          // [numX][numY]
+        REAL *vs = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numX][numY]
+        REAL *ys = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numX][numY]
+        REAL *yys = (REAL*) malloc(numY*sizeof(REAL));           // [max(numX,numY)]
+        
+        REAL *as = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numY]
+        REAL *bs = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numY]
+        REAL *cs = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numY]
+        REAL *aTs = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numY][numY]
+        REAL *bTs = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numY][numY]
+        REAL *cTs = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numZ][numY]
+
+        PrivGlobs glob = globs[k];
+        REAL dtInv = 1.0/(glob.myTimeline[g+1]-glob.myTimeline[g]);
+
+        printf("\nbefore cpListSeq\n");
+        cpListSeq(&as, a, numY*numX, outer, k);
+        printf("a\n");
+        cpListSeq(&bs, b, numY*numX, outer, k);
+        cpListSeq(&cs, c, numY*numX, outer, k);
+
+        // cpListSeq(&aTs, aT, numY*numX, outer, k);
+        // cpListSeq(&bTs, bT, numY*numX, outer, k);
+        // cpListSeq(&cTs, cT, numY*numX, outer, k);
+
+        cpListSeq(&us, u, numY*numX, outer, k);
+        // cpListSeq(&uTs, uT, numY*numX, outer, k);
+        // cpListSeq(&vs, v, numY*numX, outer, k);
+        // cpListSeq(&ys, y, numY*numX, outer, k);
+
+        //cpListSeq(&yys, yy, numY, outer, k);
+
+        printf("\nafter cpListSeq\n");
+
+        for(j=0;j<numY;j++) { // par
+            // h ere yys should have size [numX]
+            tridagPar(&as[idx2d(j,0,numX)], &bs[idx2d(j,0,numX)], &cs[idx2d(j,0,numX)]
+                     ,&us[idx2d(j,0,numX)],numX,&us[idx2d(j,0,numX)],&yys[0]);
+        }
+
+
+        for(i=0;i<numX;i++) { // par
+            // parallelizable via loop distribution / array expansion.
+            for(j=0;j<numY;j++) { // par  // here as, bs, cs should have size [numY]
+                aTs[idx2d(i,j,numY)] =       - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,0,globs.myDyyCols)]);
+                bTs[idx2d(i,j,numY)] = dtInv - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,1,globs.myDyyCols)]);
+                cTs[idx2d(i,j,numY)] =       - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,2,globs.myDyyCols)]);
+            }
+        }
+        transpose2d(aTs, &as, numY, numX);
+        transpose2d(bTs, &bs, numY, numX);
+        transpose2d(cTs, &cs, numY, numX);
+
+        transpose2d(us, &uTs, numX, numY); //Must retranspose to uTs because prev tridag
+                                         // modified us.
+        // Coalesced memory acces.
+        for(i=0;i<numX;i++) { // par
+            for(j=0;j<numY;j++) { // par
+                ys[idx2d(i,j,numY)] = dtInv * uTs[idx2d(i,j,numY)]
+                                   - 0.5*vs[idx2d(i,j,numY)];
+            }
+        }
+
+
+        for(i=0;i<numX;i++) { // par
+            // here yys should have size [numX]
+
+            tridagPar(&aTs[idx2d(i,0,numY)], &bTs[idx2d(i,0,numY)],
+                      &cTs[idx2d(i,0,numY)], &ys[idx2d(i,0,numY)], numY,
+                      &globs.myResult[idx2d(i,0,globs.myResultCols)],&yys[0]);
+                      //&globs.myResult[idx2d(i,0, globs.myResultCols)],&yys[0]);
+        }
+
+        free(us);
+        free(uTs);
+        free(vs);
+        free(ys);
+        free(yys);
+        free(as);
+        free(bs);
+        free(cs);
+        free(aTs);
+        free(bTs);
+        free(cTs);
+        
+
+        // free(us);
+        // free(uTs);
+        // free(vs);
+        // free(ys);
+        // free(yys);
+
+        // free(as);
+
+        // free(bs);
+        // free(cs);
+        // free(aTs);
+        // free(bTs);
+        // free(cTs);
+
+    }
+    
+////////////////////////
+
+
+
+    /*
+
     {
         int dimx = ceil( ((float)numX) / TVAL );
         int dimy = ceil( ((float)numY) / TVAL );
@@ -163,15 +319,21 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
         kernelTridag1 <<< block, grid, sh_mem_size >>> 
                                         (outer, u, yy, a, b, c, numX, numY);
         cudaThreadSynchronize();
-
     }
 
 
+    ///TODO keep up here:
 
-
-    kernelRollback2 <<< grid, block>>> (    globsList, g, outer, 
-                                            u, uT, v, y, yy, 
-                                            a, b, c, aT, bT, cT);
+    kernelRollback2 <<< grid, block>>> ( myTimeline, myVarX, myVarY, 
+                                         myDxx, myDyy,
+                                         myTimelineSize,
+                                         myVarXRows, myVarXCols, 
+                                         myVarYRows, myVarYCols, 
+                                         myDxxRows, myDxxCols, 
+                                         myDyyRows, myDyyCols,
+                                         g, outer, 
+                                         u, uT, v, y, yy, 
+                                         a, b, c, aT, bT, cT);
     cudaThreadSynchronize();
 
     transpose3dTiled<TVAL><<< grid, block >>>(aT, a, numY, numX);
@@ -183,7 +345,8 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
     transpose3dTiled<TVAL><<< grid, block >>>(u, uT, numX, numY);
     cudaThreadSynchronize();
 
-    kernelRollback3 <<< grid, block>>> (globsList, g, outer, uT, v, y);
+    kernelRollback3 <<< grid, block>>> (myTimeline, myTimelineSize, numX, numY,
+                                        g, outer, uT, v, y);
     cudaThreadSynchronize();
 
 // {
@@ -214,25 +377,30 @@ void rollbackWrapper(PrivGlobsCuda* globsList, const unsigned g,
 //     }
     //tridag2(globsList, outer, y, yy, aT, bT, cT, numX, numY, numZ);
     {
+        unsigned myResultSize = myResultRows*myResultCols;
         dimx = ceil( ((float)numY) / TVAL );
         dimy = ceil( ((float)numX) / TVAL );
         dim3 block(TVAL,TVAL,1), grid(dimx,dimy,dimz);
         kernelTridag2 <<< block, grid, sh_mem_size >>> 
-                            (globsList, outer, y, yy, aT, bT, cT, numX, numY);
+                            (myResult, myResultSize, outer, y, yy, aT, bT, cT, 
+                             numX, numY);
         cudaThreadSynchronize();
-    }
 
-    cudaFree(u);
-    cudaFree(uT);
-    cudaFree(v);
-    cudaFree(y);
-    cudaFree(yy);
-    cudaFree(a);
-    cudaFree(b);
-    cudaFree(c);
-    cudaFree(aT);
-    cudaFree(bT);
-    cudaFree(cT);
+        globFromDevice(globs, outer, myResultSize, myResult, 4);
+    }
+*/
+    printf("cuda free\n");
+    // cudaFree(u);
+    // cudaFree(uT);
+    // cudaFree(v);
+    // cudaFree(y);
+    // cudaFree(yy);
+    // cudaFree(a);
+    // cudaFree(b);
+    // cudaFree(c);
+    // cudaFree(aT);
+    // cudaFree(bT);
+    // cudaFree(cT);
 }
 
 
@@ -292,8 +460,8 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
     REAL *u = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numX]
     REAL *uT = (REAL*) malloc(numX*numY*sizeof(REAL));          // [numX][numY]
     REAL *v = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numX][numY]
-    REAL *y = (REAL*) malloc(numX*numZ*sizeof(REAL));           // [numX][numZ]
-    REAL *yy = (REAL*) malloc(numZ*sizeof(REAL));           // [max(numX,numY)]
+    REAL *y = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numX][numZ]
+    REAL *yy = (REAL*) malloc(numY*sizeof(REAL));           // [max(numX,numY)]
 
 
     for(i=0;i<numX;i++) { //par
@@ -335,14 +503,12 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
 
     transpose2d(uT, &u, numY, numX);
 
-    REAL *a = (REAL*) malloc(numY*numZ*sizeof(REAL));           // [numY][numZ]
-    REAL *b = (REAL*) malloc(numY*numZ*sizeof(REAL));           // [numY][numZ]
-    REAL *c = (REAL*) malloc(numY*numZ*sizeof(REAL));           // [numY][numZ]
-    //vector<vector<REAL> > a(numY, vector<REAL>(numZ)), b(numY, vector<REAL>(numZ)), c(numY, vector<REAL>(numZ));     // [max(numX,numY)]
-    REAL *aT = (REAL*) malloc(numZ*numY*sizeof(REAL));           // [numZ][numY]
-    REAL *bT = (REAL*) malloc(numZ*numY*sizeof(REAL));           // [numZ][numY]
-    REAL *cT = (REAL*) malloc(numZ*numY*sizeof(REAL));           // [numZ][numY]
-    //vector<vector<REAL> > aT(numZ, vector<REAL>(numY)), bT(numZ, vector<REAL>(numY)), cT(numZ, vector<REAL>(numY));
+    REAL *a = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numZ]
+    REAL *b = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numZ]
+    REAL *c = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numZ]
+    REAL *aT = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numZ][numY]
+    REAL *bT = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numZ][numY]
+    REAL *cT = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numZ][numY]
 
     for(i=0;i<numX;i++) {  // par // here a, b,c should have size [numX]
         for(j=0;j<numY;j++) { // par
@@ -352,13 +518,13 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
             cT[idx2d(i,j,numY)] =    - 0.5*(0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]*globs.myDxx[idx2d(i,2,globs.myDxxCols)]);
         }
     }
-    transpose2d(aT, &a, numY, numZ);
-    transpose2d(bT, &b, numY, numZ);
-    transpose2d(cT, &c, numY, numZ);
+    transpose2d(aT, &a, numY, numX);
+    transpose2d(bT, &b, numY, numX);
+    transpose2d(cT, &c, numY, numX);
 
     for(j=0;j<numY;j++) { // par
         // here yy should have size [numX]
-        tridagPar(&a[idx2d(j,0,numZ)], &b[idx2d(j,0,numZ)], &c[idx2d(j,0,numZ)]
+        tridagPar(&a[idx2d(j,0,numX)], &b[idx2d(j,0,numX)], &c[idx2d(j,0,numX)]
                  ,&u[idx2d(j,0,numX)],numX,&u[idx2d(j,0,numX)],&yy[0]);
     }
 
@@ -371,18 +537,16 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
             cT[idx2d(i,j,numY)] =       - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,2,globs.myDyyCols)]);
         }
     }
-    transpose2d(aT, &a, numY, numZ);
-    transpose2d(bT, &b, numY, numZ);
-    transpose2d(cT, &c, numY, numZ);
+    transpose2d(aT, &a, numY, numX);
+    transpose2d(bT, &b, numY, numX);
+    transpose2d(cT, &c, numY, numX);
 
     transpose2d(u, &uT, numX, numY); //Must retranspose to uT because prev tridag
-                                   // modified u.
-
-
+                                     // modified u.
     // Coalesced memory acces.
     for(i=0;i<numX;i++) { // par
         for(j=0;j<numY;j++) { // par
-            y[idx2d(i,j,numZ)] = dtInv * uT[idx2d(i,j,numY)]
+            y[idx2d(i,j,numY)] = dtInv * uT[idx2d(i,j,numY)]
                                - 0.5*v[idx2d(i,j,numY)];
         }
     }
@@ -392,7 +556,7 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
         // here yy should have size [numX]
 
         tridagPar(&aT[idx2d(i,0,numY)], &bT[idx2d(i,0,numY)],
-                  &cT[idx2d(i,0,numY)], &y[idx2d(i,0,numZ)], numY,
+                  &cT[idx2d(i,0,numY)], &y[idx2d(i,0,numY)], numY,
                   &globs.myResult[idx2d(i,0,globs.myResultCols)],&yy[0]);
                   //&globs.myResult[idx2d(i,0, globs.myResultCols)],&yy[0]);
     }
@@ -402,6 +566,12 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
     free(v);
     free(y);
     free(yy);
+    free(a);
+    free(b);
+    free(c);
+    free(aT);
+    free(bT);
+    free(cT);
 }
 
 void initGrid(  const REAL s0, const REAL alpha, const REAL nu,const REAL t,
@@ -576,24 +746,15 @@ void   run_GPU(
     //printMatrix(glob.myY, glob.myYsize, 1);
     //printMatrix(glob.myResult, glob.myResultRows, glob.myResultCols);
 
-    // for(int g = numT-2;g>=0;--g){ //seq
-    //     updateWrapper(globsList, g, outer, alpha, beta, nu);
-    //     rollback(i, globs[j]);
-    //     //rollbackWrapper(globsList, g, outer, numX, numY);
-    // }
-    // for( unsigned j = 0; j < outer; ++ j ) { //par
-    //     res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,globs[j].myResultCols)];
-    // }
-
-
-
     for(int i = numT-2;i>=0;--i){ //seq
         updateWrapper(globs, i, outer, alpha, beta, nu);
+        rollbackWrapper(globs, i, outer, numX, numY);
         for( unsigned j = 0; j < outer; ++ j ) { //par
             // updateParams(i,alpha,beta,nu,globs[j]);
-            rollback(i, globs[j]);
+            // rollback(i, globs[j]);
         }
     }
+    printf("printing results\n");
     // parallel assignment of results.
     for( unsigned j = 0; j < outer; ++ j ) { //par
         res[j] = globs[j].myResult[idx2d(globs[j].myXindex,globs[j].myYindex,globs[j].myResultCols)];

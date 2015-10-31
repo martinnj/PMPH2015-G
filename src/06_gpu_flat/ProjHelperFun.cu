@@ -103,8 +103,8 @@ void globToDevice(PrivGlobs* globs, unsigned outer, unsigned size,
 }
 
 //frees d_in
-void globFromDevice(PrivGlobs* globs, unsigned outer, unsigned size, REAL* d_in,
-                    int type){
+void globFromDevice(PrivGlobs* globs, unsigned outer, unsigned size, 
+                    REAL* d_in, int type){
     unsigned mem_size = outer*size*sizeof(REAL);
     REAL* tmp = (REAL*) malloc(mem_size);
 

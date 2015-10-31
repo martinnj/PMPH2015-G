@@ -33,9 +33,10 @@ __global__ void kernelTridag1(const unsigned outer, REAL *u, REAL *yy,
 }
 
 //3d kernel for the 2d-tridag kernel
-__global__ void kernelTridag2(PrivGlobsCuda* globsList, const unsigned outer, 
+__global__ void kernelTridag2(REAL* myResult, const unsigned myResultSize, 
+                              const unsigned outer, 
                               REAL *y, REAL *yy, REAL *aT, REAL *bT, REAL *cT,
-                const unsigned numX, const unsigned numY
+                              const unsigned numX, const unsigned numY
 ){
     int kk = blockIdx.z * blockDim.z;
     int tidz = threadIdx.z;
@@ -44,14 +45,14 @@ __global__ void kernelTridag2(PrivGlobsCuda* globsList, const unsigned outer,
     const unsigned n = numY*numX; //based on u (output)
     const unsigned sgmSize = numY;
     if(k < outer) {
-        PrivGlobsCuda globs = globsList[k];
+        myResult = &myResult[k*myResultSize];
         TRIDAG_SOLVER(  &aT[idx3d(0,0,k,numX,numY)], //[idx2d(i,0,numY)], 
                         &bT[idx3d(0,0,k,numX,numY)], //[idx2d(i,0,numY)], 
                         &cT[idx3d(0,0,k,numX,numY)], //[idx2d(i,0,numY)],
                         & y[idx3d(0,0,k,numX,numX)], //[idx2d(i,0,numZ)]
                         n,
                         sgmSize,
-                        &globs.myResult[0], //[i][0]
+                        myResult, //[i][0]
                         //&yy[idx2d(k,0,numY)] //[0]
                         &yy[idx3d(0,0,k,numX,numY)]
                      );
@@ -60,10 +61,18 @@ __global__ void kernelTridag2(PrivGlobsCuda* globsList, const unsigned outer,
 
 
 //Expects thread sizes x=numX, y=numY
-__global__ void kernelRollback1(
-        PrivGlobsCuda* globsList, const unsigned g, const unsigned outer, 
-        REAL *u, REAL *uT, REAL *v, REAL *y,
-        REAL *a, REAL *b, REAL *c, REAL *aT, REAL *bT, REAL *cT
+__global__ void kernelRollback1( 
+                    REAL* myTimeline, REAL* myVarX, REAL* myVarY, 
+                    REAL* myResult, REAL* myDxx, REAL* myDyy,
+                    const unsigned myTimelineSize, 
+                    const unsigned myVarXRows, const unsigned myVarXCols,
+                    const unsigned myVarYRows, const unsigned myVarYCols,
+                    const unsigned myResultRows, const unsigned myResultCols, 
+                    const unsigned myDxxRows, const unsigned myDxxCols,
+                    const unsigned myDyyRows, const unsigned myDyyCols,
+                    const unsigned g, const unsigned outer, 
+                    REAL *u, REAL *uT, REAL *v, REAL *y,
+                    REAL *a, REAL *b, REAL *c, REAL *aT, REAL *bT, REAL *cT
 ){
     int ii = blockIdx.x * blockDim.x;
     int jj = blockIdx.y * blockDim.y;
@@ -78,29 +87,37 @@ __global__ void kernelRollback1(
     if(k >= outer)
         return;
 
-    PrivGlobsCuda globs = globsList[k];
-    REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
+    //PrivGlobsCuda globs = globsList[k];
 
-    unsigned numX = globs.myXsize,
-             numY = globs.myYsize;
+    myTimeline = &myTimeline[k*myTimelineSize];
+    myVarX = &myVarX[k*myVarXCols*myVarXRows];
+    myVarY = &myVarY[k*myVarYCols*myVarYRows];
+    myResult = &myResult[k*myResultCols*myResultRows];
+    myDxx = &myDxx[k*myDxxCols*myDxxRows];
+    myDyy = &myDyy[k*myDyyCols*myDyyRows];
+
+    REAL dtInv = 1.0/(myTimeline[g+1]-myTimeline[g]);
+
+    unsigned numX = myVarXCols,//myXsize,
+             numY = myVarXRows;//myYsize;
 
     unsigned numZ = max(numX,numY);
 
     if(i < numX && j < numY){
         //idx3d(int row, int col, int z, int lengt, int depth)
-        uT[idx3d(i,j,k,numX, numY)] = dtInv*globs.myResult[idx2d(i,j,globs.myResultCols)];
-        //uT[idx2d(i,j,numY)] = dtInv*globs.myResult[i][j];
+        uT[idx3d(i,j,k,numX, numY)] = dtInv*myResult[idx2d(i,j,myResultCols)];
+        //uT[idx2d(i,j,numY)] = dtInv*myResult[i][j];
 
-        REAL p = 0.5*0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)];    //[i][j];
+        REAL p = 0.5*0.5*myVarX[idx2d(i,j,myVarXCols)];    //[i][j];
         if(i > 0) {
-            uT[idx3d(i,j,k,numX, numY)] += p*globs.myDxx[idx2d(i,0,globs.myDxxCols)]            //[i][0]
-                        * globs.myResult[idx2d(i-1, j, globs.myResultCols)];   //[i-1][j];
+            uT[idx3d(i,j,k,numX, numY)] += p*myDxx[idx2d(i,0,myDxxCols)]            //[i][0]
+                        * myResult[idx2d(i-1, j, myResultCols)];   //[i-1][j];
         }
-        uT[idx3d(i,j,k,numX, numY)]  += p*globs.myDxx[idx2d(i,1,globs.myDxxCols)] //[i][1]
-                        * globs.myResult[idx2d(i, j, globs.myResultCols)];   //[i][j];
+        uT[idx3d(i,j,k,numX, numY)]  += p*myDxx[idx2d(i,1,myDxxCols)] //[i][1]
+                        * myResult[idx2d(i, j, myResultCols)];   //[i][j];
         if(i < numX-1) {
-            uT[idx3d(i,j,k,numX, numY)] += p*globs.myDxx[idx2d(i,2,globs.myDxxCols)] //[i][2]
-                        * globs.myResult[idx2d(i+1, j, globs.myResultCols)];  //[i+1][j];
+            uT[idx3d(i,j,k,numX, numY)] += p*myDxx[idx2d(i,2,myDxxCols)] //[i][2]
+                        * myResult[idx2d(i+1, j, myResultCols)];  //[i+1][j];
         }
     }
     __syncthreads();
@@ -109,16 +126,16 @@ __global__ void kernelRollback1(
         v[idx3d(i,j,k,numX, numY)] = 0.0;
         //v[idx2d(k,i,numY)] = 0.0;
 
-        REAL p = 0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]; //[i][j];
+        REAL p = 0.5*myVarY[idx2d(i,j,myVarYCols)]; //[i][j];
         if(j > 0) {
-          v[idx3d(i,j,k,numX, numY)] +=  p*globs.myDyy[idx2d(j,0,globs.myDyyCols)] //[j][0]
-                     * globs.myResult[idx2d(i, j-1, globs.myResultCols)];   //[i][j-1];
+          v[idx3d(i,j,k,numX, numY)] +=  p*myDyy[idx2d(j,0,myDyyCols)] //[j][0]
+                     * myResult[idx2d(i, j-1, myResultCols)];   //[i][j-1];
         }
-        v[idx3d(i,j,k,numX, numY)]  +=  p*globs.myDyy[idx2d(j,1,globs.myDyyCols)]  //[j][1]
-                     * globs.myResult[idx2d(i, j, globs.myResultCols)];      //[i][j];
+        v[idx3d(i,j,k,numX, numY)]  +=  p*myDyy[idx2d(j,1,myDyyCols)]  //[j][1]
+                     * myResult[idx2d(i, j, myResultCols)];      //[i][j];
         if(j < numY-1) {
-          v[idx3d(i,j,k,numX, numY)] += p*globs.myDyy[idx2d(j,2,globs.myDyyCols)]  //[j][2]
-                     * globs.myResult[idx2d(i, j+1, globs.myResultCols)];  //[i][j+1];
+          v[idx3d(i,j,k,numX, numY)] += p*myDyy[idx2d(j,2,myDyyCols)]  //[j][2]
+                     * myResult[idx2d(i, j+1, myResultCols)];  //[i][j+1];
         }
         uT[idx3d(i,j,k,numX, numY)] += v[idx3d(i,j,k,numX, numY)];
     }
@@ -128,12 +145,12 @@ __global__ void kernelRollback1(
 
     // __syncthreads();
     if(i < numX && j < numY){
-        REAL p = 0.5*0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]; //[i][j]
+        REAL p = 0.5*0.5*myVarX[idx2d(i,j,myVarXCols)]; //[i][j]
 
-        aT[idx3d(i,j,k,numX,numY)] = -p*globs.myDxx[idx2d(i,0,globs.myDxxCols)]; //[i][0];
+        aT[idx3d(i,j,k,numX,numY)] = -p*myDxx[idx2d(i,0,myDxxCols)]; //[i][0];
         bT[idx3d(i,j,k,numX,numY)] = 
-                            dtInv    -p*globs.myDxx[idx2d(i,1,globs.myDxxCols)]; //[i][1];
-        cT[idx3d(i,j,k,numX,numY)] = -p*globs.myDxx[idx2d(i,2,globs.myDxxCols)]; //[i][2];
+                            dtInv    -p*myDxx[idx2d(i,1,myDxxCols)]; //[i][1];
+        cT[idx3d(i,j,k,numX,numY)] = -p*myDxx[idx2d(i,2,myDxxCols)]; //[i][2];
     }
     __syncthreads();
 
@@ -145,7 +162,14 @@ __global__ void kernelRollback1(
 
 //template <int TVAL>
 __global__ void kernelRollback2(
-        PrivGlobsCuda* globsList, const unsigned g, const unsigned outer, 
+        REAL* myTimeline, REAL* myVarX, REAL* myVarY, 
+        REAL* myDxx, REAL* myDyy,
+        const unsigned myTimelineSize, 
+        const unsigned myVarXRows, const unsigned myVarXCols,
+        const unsigned myVarYRows, const unsigned myVarYCols,
+        const unsigned myDxxRows, const unsigned myDxxCols,
+        const unsigned myDyyRows, const unsigned myDyyCols,
+        const unsigned g, const unsigned outer, 
         REAL *u, REAL *uT, REAL *v, REAL *y, REAL *yy,
         REAL *a, REAL *b, REAL *c, REAL *aT, REAL *bT, REAL *cT
 ){
@@ -162,29 +186,35 @@ __global__ void kernelRollback2(
     if(k >= outer)
         return;
 
-    PrivGlobsCuda globs = globsList[k];
-    REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
+    //PrivGlobsCuda globs = globsList[k];
+    myTimeline = &myTimeline[k*myTimelineSize];
+    myVarX = &myVarX[k*myVarXCols*myVarXRows];
+    myVarY = &myVarY[k*myVarYCols*myVarYRows];
+    myDxx = &myDxx[k*myDxxCols*myDxxRows];
+    myDyy = &myDyy[k*myDyyCols*myDyyRows];
 
-    unsigned numX = globs.myXsize,
-             numY = globs.myYsize;
+    REAL dtInv = 1.0/(myTimeline[g+1]-myTimeline[g]);
+
+    unsigned numX = myVarXCols,//myXsize,
+             numY = myVarXRows;//myYsize;
 
     if(i < numX && j < numY){
-        REAL p = 0.5*0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]; //[i][j]
+        REAL p = 0.5*0.5*myVarX[idx2d(i,j,myVarXCols)]; //[i][j]
 
-        aT[idx3d(i,j,k,numX,numY)] = -p*globs.myDxx[idx2d(i,0,globs.myDxxCols)]; //[i][0];
+        aT[idx3d(i,j,k,numX,numY)] = -p*myDxx[idx2d(i,0,myDxxCols)]; //[i][0];
         bT[idx3d(i,j,k,numX,numY)] = 
-                            dtInv    -p*globs.myDxx[idx2d(i,1,globs.myDxxCols)]; //[i][1];
-        cT[idx3d(i,j,k,numX,numY)] = -p*globs.myDxx[idx2d(i,2,globs.myDxxCols)]; //[i][2];
+                            dtInv    -p*myDxx[idx2d(i,1,myDxxCols)]; //[i][1];
+        cT[idx3d(i,j,k,numX,numY)] = -p*myDxx[idx2d(i,2,myDxxCols)]; //[i][2];
     }
     __syncthreads();
 
 
     if(i < numX && j < numY){
-        REAL p = 0.5*0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)];  //[i][j];
-        aT[idx3d(i,j,k,numX,numY)] = -p*globs.myDyy[idx2d(j,0,globs.myDyyCols)]; //[j][0];
+        REAL p = 0.5*0.5*myVarY[idx2d(i,j,myVarYCols)];  //[i][j];
+        aT[idx3d(i,j,k,numX,numY)] = -p*myDyy[idx2d(j,0,myDyyCols)]; //[j][0];
         bT[idx3d(i,j,k,numX,numY)] = 
-                            dtInv    -p*globs.myDyy[idx2d(j,1,globs.myDyyCols)]; //[j][1];
-        cT[idx3d(i,j,k,numX,numY)] = -p*globs.myDyy[idx2d(j,2,globs.myDyyCols)]; //[j][2];
+                            dtInv    -p*myDyy[idx2d(j,1,myDyyCols)]; //[j][1];
+        cT[idx3d(i,j,k,numX,numY)] = -p*myDyy[idx2d(j,2,myDyyCols)]; //[j][2];
     }
     // __syncthreads();
 
@@ -201,9 +231,10 @@ __global__ void kernelRollback2(
     // }
 }
 
-__global__ void kernelRollback3(
-        PrivGlobsCuda* globsList, const unsigned g, const unsigned outer, 
-        REAL *uT, REAL *v, REAL *y
+__global__ void kernelRollback3(REAL* myTimeline, unsigned myTimelineSize,
+                                const unsigned numX, const unsigned numY,
+                                const unsigned g, const unsigned outer, 
+                                REAL *uT, REAL *v, REAL *y
 ){
     int ii = blockIdx.x * blockDim.x;
     int jj = blockIdx.y * blockDim.y;
@@ -218,11 +249,8 @@ __global__ void kernelRollback3(
     if(k >= outer)
         return;
 
-    PrivGlobsCuda globs = globsList[k];
-    REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
-
-    unsigned numX = globs.myXsize,
-             numY = globs.myYsize;
+    myTimeline = &myTimeline[k*myTimelineSize];
+    REAL dtInv = 1.0/(myTimeline[g+1]-myTimeline[g]);
 
     if(i < numX && j < numY){
         y[idx3d(i,j,k,numX, numY)] = dtInv * uT[idx3d(i,j,k,numX, numY)]
@@ -254,7 +282,7 @@ __global__ void kernelUpdate(
 
     myVarX = &myVarX[k*myVarXCols*myVarXRows];
     myX = &myX[k*myXsize];
-    myVarX = &myVarY[k*myVarYCols*myVarYRows];
+    myVarY = &myVarY[k*myVarYCols*myVarYRows];
     myY = &myY[k*myYsize];
     myTimeline = &myTimeline[k*myTimelineSize];
 
