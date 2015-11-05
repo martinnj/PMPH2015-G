@@ -357,13 +357,14 @@ volatile MyReal2* lin_sh = (volatile MyReal2*) (r_arr + blockDim.x);
 volatile REAL* uu_sh = (volatile REAL*) (lin_sh + blockDim.x);
 volatile REAL* u_sh = (volatile REAL*) (uu_sh + blockDim.x);
 
+//[...]
 
 if(gid < n) {
     //uu[gid] = (res4.x*b0 + res4.y) / (res4.z*b0 + res4.w) ;
     uu_sh[tid] = (res4.x*b0 + res4.y) / (res4.z*b0 + res4.w) ;
 }
 
-
+//[...]
 
 const unsigned end_seg_ind_tid = sgm_sz-1+beg_seg_ind_tid;
 const unsigned int k_tid = (end_seg_ind_tid - tid) + beg_seg_ind_tid;  
@@ -372,7 +373,6 @@ const REAL yn = u_sh[end_seg_ind_tid] / uu_sh[end_seg_ind_tid];
 lin_sh[tid] = (tid!=beg_seg_ind_tid && gid < n) ?
                 MyReal2( u_sh[k_tid]/uu_sh[k_tid], -c_arr[k_tid]/uu_sh[k_tid] ) :
                 MyReal2( 0.0,        1.0         ) ;
-// 3.b) inplaceScanInc<LinFunComp>(n,lfuns);
 __syncthreads();
 \end{minted}
 \end{frame}
