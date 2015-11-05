@@ -260,8 +260,8 @@ __global__ void kernelUpdate(
                                 );
         globs.myVarY[idx2d(i, j, globs.myVarYCols)] = 
                             exp(2.0*(  alpha*log(globs.myX[i])
-                                          + globs.myY[j]
-                                          - 0.5*nu*nu*globs.myTimeline[g] )
+                                      + globs.myY[j]
+                                      - 0.5*nu*nu*globs.myTimeline[g] )
                                 );
     }
 }

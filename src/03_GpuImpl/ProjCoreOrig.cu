@@ -49,8 +49,8 @@ void updateWrapper( PrivGlobsCuda* globsList, const unsigned g,
 
     const int dimx = ceil( ((float)x) / TVAL );
     const int dimy = ceil( ((float)y) / TVAL );
-    const int dimz = ceil( ((float)z) / TVAL );
-    dim3 block(TVAL,TVAL,TVAL), grid(dimx,dimy,dimz);
+    const int dimz = ceil( ((float)z));
+    dim3 block(TVAL,TVAL,1), grid(dimx,dimy,dimz);
 
     kernelUpdate <<< grid, block>>>(globsList, g, x, y, z, alpha, beta, nu);
     cudaThreadSynchronize();

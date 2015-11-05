@@ -77,46 +77,13 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
 
     REAL dtInv = 1.0/(globs.myTimeline[g+1]-globs.myTimeline[g]);
 
-
-    // vector<vector<REAL> > u(numY, vector<REAL>(numX));   // [numY][numX]
-    // vector<vector<REAL> > uT(numX, vector<REAL>(numY));  // [numX][numY]
-    // vector<vector<REAL> > v(numX, vector<REAL>(numY));   // [numX][numY]
-    // vector<vector<REAL> > y(numX, vector<REAL>(numZ));   // [numX][numZ]
-    // vector<REAL> yy(numZ);  // temporary used in tridag  // [max(numX,numY)]
-
     REAL *u = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numX]
     REAL *uT = (REAL*) malloc(numX*numY*sizeof(REAL));          // [numX][numY]
     REAL *v = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numX][numY]
-    REAL *y = (REAL*) malloc(numX*numZ*sizeof(REAL));           // [numX][numZ]
-    REAL *yy = (REAL*) malloc(numZ*sizeof(REAL));           // [max(numX,numY)]
+    REAL *y = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numX][numZ]
+    REAL *yy = (REAL*) malloc(numY*sizeof(REAL));           // [max(numX,numY)]
 
-    //  explicit x
-    // parallelizable directly since all reads and writes are independent.
-    // Degree of parallelism: numX*numY.
-    // TODO: Examine how tiling/shared memory can be used on globs (.myResult).
-    // Reads are coalosced but writes are not.
-    // TODO: Coalesced access via matrix transposition of u/uT. **DONE
-/*
-    for(i=0;i<numX;i++) { //par
-        for(j=0;j<numY;j++) { //par
-            //TODO: This can be combined in the tridag kernel, in shared mem.
 
-            uT[idx2d(i,j,numY)] = dtInv*globs.myResult[idx2d(i,j,
-                                                       globs.myResultCols)];
-            REAL x = 0.5*0.5*globs.myVarX[idx2d(i,j, globs.myVarXCols)];
-            if(i > 0) {
-                uT[idx2d(i,j,numY)] += x*globs.myDxx[idx2d(i,0,globs.myDxxCols)]
-                            * globs.myResult[idx2d(i-1,j, globs.myResultCols)];
-            }
-            uT[idx2d(i,j,numY)]  += x*globs.myDxx[idx2d(i,1,globs.myDxxCols)]
-                            * globs.myResult[idx2d(i,j, globs.myResultCols)];
-            if(i < numX-1) {
-                uT[idx2d(i,j,numY)] += x*globs.myDxx[idx2d(i,2,globs.myDxxCols)]
-                            * globs.myResult[idx2d(i+1,j, globs.myResultCols)];
-            }
-        }
-    }
-*/
     for(i=0;i<numX;i++) { //par
         for(j=0;j<numY;j++) { //par
             //TODO: This can be combined in the tridag kernel, in shared mem.
@@ -135,44 +102,7 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
         }
     }
 
-    //  explicit y
-    // parallelizable directly since all reads and writes are independent.
-    // Degree of parallelism: numY*numX.
-    // TODO: Examine how tiling/shared memory can be used on globs (.myResult).
-    // and u.?
-
-    // Reads are coalosced but writes are not.
-    // TODO: Coalesced access via matrix transposition.
-    // TODO: Interchange loop. **DONE
-
-    // Loop interchanged, u transposed used here also, further utilizing the
-    // time used on allocation.
-    // Loop interchange chosen over matrix transposition, as then both
-    // v, globs.myVarY and globs.myResult would have to be transposed (i.e.
-    // mem allocation and computation time on transposition), and we deem this
-    // overhead greater than that of globs.myDyy non-coalesced mem access (which
-    // can be avoided in transposition).
-/*
-    for(i=0;i<numX;i++) { //par
-        for(j=0;j<numY;j++) { //par
-            //TODO: This can be combined in the tridag kernel too, as parameters.
-            v[idx2d(i,j,numY)] = 0.0;
-            REAL y = 0.5*globs.myVarY[idx2d(i,j, globs.myVarYCols)];
-
-            if(j > 0) {
-              v[idx2d(i,j,numY)] +=  (y*globs.myDyy[idx2d(j,0,globs.myDxxCols)])
-                         *  globs.myResult[idx2d(i,j-1, globs.myResultCols)];
-            }
-            v[idx2d(i,j,numY)]  +=   (y*globs.myDyy[idx2d(j,1,globs.myDxxCols)])
-                         *  globs.myResult[idx2d(i,j, globs.myResultCols)];
-            if(j < numY-1) {
-              v[idx2d(i,j,numY)] +=  (y*globs.myDyy[idx2d(j,2,globs.myDxxCols)])
-                         *  globs.myResult[idx2d(i,j+1, globs.myResultCols)];
-            }
-            uT[idx2d(i,j,numY)] += v[idx2d(i,j,numY)];
-        }
-    }
-*/
+  
     for(i=0;i<numX;i++) { //par
         for(j=0;j<numY;j++) { //par
             //TODO: This can be combined in the tridag kernel too, as parameters.
@@ -191,38 +121,15 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
         }
     }
 
-    transpose(uT, &u, numY, numX);
+    transpose2d(uT, &u, numY, numX);
 
-    REAL *a = (REAL*) malloc(numY*numZ*sizeof(REAL));           // [numY][numZ]
-    REAL *b = (REAL*) malloc(numY*numZ*sizeof(REAL));           // [numY][numZ]
-    REAL *c = (REAL*) malloc(numY*numZ*sizeof(REAL));           // [numY][numZ]
-    //vector<vector<REAL> > a(numY, vector<REAL>(numZ)), b(numY, vector<REAL>(numZ)), c(numY, vector<REAL>(numZ));     // [max(numX,numY)]
-    REAL *aT = (REAL*) malloc(numZ*numY*sizeof(REAL));           // [numZ][numY]
-    REAL *bT = (REAL*) malloc(numZ*numY*sizeof(REAL));           // [numZ][numY]
-    REAL *cT = (REAL*) malloc(numZ*numY*sizeof(REAL));           // [numZ][numY]
-    //vector<vector<REAL> > aT(numZ, vector<REAL>(numY)), bT(numZ, vector<REAL>(numY)), cT(numZ, vector<REAL>(numY));
+    REAL *a = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numZ]
+    REAL *b = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numZ]
+    REAL *c = (REAL*) malloc(numY*numX*sizeof(REAL));           // [numY][numZ]
+    REAL *aT = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numZ][numY]
+    REAL *bT = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numZ][numY]
+    REAL *cT = (REAL*) malloc(numX*numY*sizeof(REAL));           // [numZ][numY]
 
-    //  implicit x
-    // ASSUMING tridag is independent.
-    // parallelizable directly since all reads and writes are independent.
-    // Degree of parallelism: numY*numX.
-    // TODO: MyDxx and myVarX is not coalesced. **DONE
-    /*
-
-/*
-    // parallelizable via loop distribution / array expansion.
-    for(i=0;i<numX;i++) {  // par // here a, b,c should have size [numX]
-        for(j=0;j<numY;j++) { // par
-            REAL x = 0.5*0.5*globs.myVarX[idx2d(i,j, globs.myVarXCols)];
-            aT[idx2d(i,j,numY)] =
-                            - x*globs.myDxx[idx2d(i,0,globs.myDxxCols)];
-            bT[idx2d(i,j,numY)] = dtInv
-                            - x*globs.myDxx[idx2d(i,1,globs.myDxxCols)];
-            cT[idx2d(i,j,numY)] =
-                            - x*globs.myDxx[idx2d(i,2,globs.myDxxCols)];
-        }
-    }
-*/
     for(i=0;i<numX;i++) {  // par // here a, b,c should have size [numX]
         for(j=0;j<numY;j++) { // par
             aT[idx2d(i,j,numY)] =    - 0.5*(0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]*globs.myDxx[idx2d(i,0,globs.myDxxCols)]);
@@ -231,39 +138,17 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
             cT[idx2d(i,j,numY)] =    - 0.5*(0.5*globs.myVarX[idx2d(i,j,globs.myVarXCols)]*globs.myDxx[idx2d(i,2,globs.myDxxCols)]);
         }
     }
-    transpose(aT, &a, numY, numZ);
-    transpose(bT, &b, numY, numZ);
-    transpose(cT, &c, numY, numZ);
+    transpose2d(aT, &a, numY, numX);
+    transpose2d(bT, &b, numY, numX);
+    transpose2d(cT, &c, numY, numX);
 
     for(j=0;j<numY;j++) { // par
         // here yy should have size [numX]
-        tridagPar(&a[idx2d(j,0,numZ)], &b[idx2d(j,0,numZ)], &c[idx2d(j,0,numZ)]
+        tridagPar(&a[idx2d(j,0,numX)], &b[idx2d(j,0,numX)], &c[idx2d(j,0,numX)]
                  ,&u[idx2d(j,0,numX)],numX,&u[idx2d(j,0,numX)],&yy[0]);
     }
 
-    //  implicit y
-    // ASSUMING tridag is independent.
-    // parallelizable directly since all reads and writes are independent.
-    // Degree of parallelism: numY*numX.
-    // TODO: transpose myDyy and u for coalesced access. **DONE
-    // **DONE loop distributed (tridag part), uT mem reused (refilled with u),
-    // loop interchanged for mem colesced access, a,b,c matrices reused from
-    // prev allocation; used via matrix trandposition.
-    // myDyy is still not coalesced, same arguments as previus loop.
-/*
-    for(i=0;i<numX;i++) { // par
-        // parallelizable via loop distribution / array expansion.
-        for(j=0;j<numY;j++) { // par  // here a, b, c should have size [numY]
-            REAL y = 0.5*0.5*globs.myVarY[idx2d(i,j, globs.myVarYCols)];
-            aT[idx2d(i,j,numY)] =       - y*globs.myDyy[idx2d(j,0,
-                                                        globs.myDyyCols)];
-            bT[idx2d(i,j,numY)] = dtInv - y*globs.myDyy[idx2d(j,1,
-                                                        globs.myDyyCols)];
-            cT[idx2d(i,j,numY)] =       - y*globs.myDyy[idx2d(j,2,
-                                                        globs.myDyyCols)];
-        }
-    }
-*/
+
     for(i=0;i<numX;i++) { // par
         // parallelizable via loop distribution / array expansion.
         for(j=0;j<numY;j++) { // par  // here a, b, c should have size [numY]
@@ -272,18 +157,16 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
             cT[idx2d(i,j,numY)] =       - 0.5*(0.5*globs.myVarY[idx2d(i,j,globs.myVarYCols)]*globs.myDyy[idx2d(j,2,globs.myDyyCols)]);
         }
     }
-    transpose(aT, &a, numY, numZ);
-    transpose(bT, &b, numY, numZ);
-    transpose(cT, &c, numY, numZ);
+    transpose2d(aT, &a, numY, numX);
+    transpose2d(bT, &b, numY, numX);
+    transpose2d(cT, &c, numY, numX);
 
-    transpose(u, &uT, numX, numY); //Must retranspose to uT because prev tridag
-                                   // modified u.
-
-
+    transpose2d(u, &uT, numX, numY); //Must retranspose to uT because prev tridag
+                                     // modified u.
     // Coalesced memory acces.
     for(i=0;i<numX;i++) { // par
         for(j=0;j<numY;j++) { // par
-            y[idx2d(i,j,numZ)] = dtInv * uT[idx2d(i,j,numY)]
+            y[idx2d(i,j,numY)] = dtInv * uT[idx2d(i,j,numY)]
                                - 0.5*v[idx2d(i,j,numY)];
         }
     }
@@ -293,7 +176,7 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
         // here yy should have size [numX]
 
         tridagPar(&aT[idx2d(i,0,numY)], &bT[idx2d(i,0,numY)],
-                  &cT[idx2d(i,0,numY)], &y[idx2d(i,0,numZ)], numY,
+                  &cT[idx2d(i,0,numY)], &y[idx2d(i,0,numY)], numY,
                   &globs.myResult[idx2d(i,0,globs.myResultCols)],&yy[0]);
                   //&globs.myResult[idx2d(i,0, globs.myResultCols)],&yy[0]);
     }
@@ -303,6 +186,12 @@ void rollback( const unsigned g, PrivGlobs& globs ) {
     free(v);
     free(y);
     free(yy);
+    free(a);
+    free(b);
+    free(c);
+    free(aT);
+    free(bT);
+    free(cT);
 }
 
 void   run_GPU(
