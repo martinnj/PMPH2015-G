@@ -293,15 +293,14 @@ transpose(uT, &u, numY, numX);
 \end{minted}
 \end{frame}
 
-\section{CUDA Rewrite}
+\section{CUDA Translation}
 \frame{\frametitle{CUDA Rewrite}
 \begin{enumerate}
    \item PrivGlobs
    \item Initialization
    \item UpdateParams
-   \item Rollback - Sequencial
-   \item Tridag
-   \item Result Extraction
+   \item Rollback - Sequential
+   \item Tridag - Sequential
 \end{enumerate}
 }
 
@@ -393,7 +392,7 @@ __syncthreads();
         OMP + Flattening     & $1411 ms$ & $1827 ms$ &  $20222 ms$ \\
         CUDA (Unfinished)    & $2744 ms$ & $4329 ms$ & $129250 ms$ \\
     \end{tabular}
-    \caption{OpenMP = OMP. Benchmark results for running the different iteration of the code
+    \caption{OMP = OpenMP. Benchmark results for running the different iteration of the code
         on each of the datasets. All times are an average of 5 runs measured in
         microseconds.}
     \label{tab:benchmarks}
