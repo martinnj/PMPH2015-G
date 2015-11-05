@@ -104,7 +104,7 @@ for(unsigned i=0 ;
     i < globs.myX.size() ;
     ++i) {
     for(unsigned j=0 ;
-        j<globs.myY.size() ;
+        j < globs.myY.size() ;
         ++j) 
         globs.myResult[i][j] = payoff[i];
 }
@@ -119,7 +119,9 @@ for(unsigned i=0 ;
     for(unsigned j=0 ;
         j < globs.myYsize ;
         ++j) 
-        globs.myResult[idx2d(i,j,globs.myResultCols)] = payoff[i];
+        globs.myResult[
+            idx2d(i,j,globs.myResultCols)]
+            = payoff[i];
 }
 \end{minted}
 \end{frame}
@@ -144,7 +146,8 @@ REAL* myResult; // [numX][numY]
 unsigned myResultRows;
 unsigned myResultCols;
 //...
-this->myResult = (REAL*) malloc(sizeof(REAL)*numX*numY);
+this->myResult = (REAL*) malloc(sizeof(REAL) *
+                                numX*numY);
 this->myResultRows = numX;
 this->myResultCols = numY;
 \end{minted}
