@@ -27,7 +27,7 @@
 \setbeamercolor*{palette tertiary}{fg=black,bg=black!10} 
 \setbeamercolor*{palette quaternary}{fg=black,bg=black!10} 
 
-\newenvironment{lstlisting}{}{}
+\newenvironment{minted}{}{}
 
 \begin{document}
 \title{Programming Massively Parallel Hardware} 
@@ -44,30 +44,218 @@
 \section{Data Structure Flattening}
 
 \subsection{Matrix to Vector}
-\frame{\frametitle{Data Structure Flattening} 
-TEEEXT
+\frame{\frametitle{Matrix to Vector - Declaration} 
+\begin{minipage}{.45\textwidth}
+\begin{minted}{cpp}
+vector<vector<REAL> > myResult; // [numX][numY]
+//...
+this->myResult.resize(numX);
+for(unsigned i=0;i<numX;++i) {
+    this->myResult[i].resize(numY);
+}
+\end{minted}
+\end{minipage}\hfill
+\begin{minipage}{.45\textwidth}
+\begin{minted}{cpp}
+vector<REAL> myResult; // [numX][numY]
+unsigned myResultRows;
+unsigned myResultCols;
+//...
+this->myResult.resize(numX*numY);
+this->myResultRows = numX;
+this->myResultCols = numY;
+\end{minted}
+\end{minipage}
+}
+
+\frame{\frametitle{Matrix to Vector - Usage}
+\begin{figure}[H]
+    \begin{minipage}{.45\textwidth}
+        \begin{minted}{cpp}
+for(unsigned i=0 ;
+    i < globs.myX.size() ;
+    ++i) {
+    for(unsigned j=0 ;
+        j<globs.myY.size() ;
+        ++j) 
+        globs.myResult[i][j] = payoff[i];
+}
+        \end{minted}
+    \end{minipage}\hfill
+    \begin{minipage}{.45\textwidth}
+        \begin{minted}{cpp}
+for(unsigned i=0 ;
+    i < globs.myXsize ;
+    ++i) {
+    for(unsigned j=0 ;
+        j < globs.myYsize ;
+        ++j) 
+        globs.myResult[idx2d(i,j,globs.myResultCols)] = payoff[i];
+}
+        \end{minted}
+    \end{minipage}
+\end{figure}
+}
+
+
+\subsection{Vector to Array}
+\frame{\frametitle{Vector to Array - Declaration} 
+    \begin{minipage}{.45\textwidth}
+        \begin{minted}{cpp}
+vector<REAL> myResult; // [numX][numY]
+unsigned myResultRows;
+unsigned myResultCols;
+//...
+this->myResult.resize(numX*numY);
+this->myResultRows = numX;
+this->myResultCols = numY;
+        \end{minted}
+    \end{minipage}\hfill
+    \begin{minipage}{.45\textwidth}
+        \begin{minted}{cpp}
+REAL* myResult; // [numX][numY]
+unsigned myResultRows;
+unsigned myResultCols;
+//...
+this->myResult = (REAL*) malloc(sizeof(REAL)*numX*numY);
+this->myResultRows = numX;
+this->myResultCols = numY;
+        \end{minted}
+    \end{minipage}
 }
 
 \subsection{Vector to Array}
-\frame{\frametitle{Data Structure Flattening} 
-TEEEXT
+\frame{\frametitle{Vector to Array - Usage} 
+    \noindent\texttt{void initOperator(const vector<REAL> \&x, unsgined xSize,
+    vector<REAL> \&Dxx, unsigned DxxCols );}
+    \vspace
+    \noindent\texttt{void initOperator( const REAL* \&x, unsgined xSize,
+    REAL* \&Dxx, unsigned DxxCols );}
 }
 
 
 \section{CUDA Preperation}
 \subsection{Array Expansion}
 \frame{\frametitle{Array Expansion} 
-TEXT
+    \begin{minipage}{.45\textwidth}
+        \begin{minted}{cpp}
+// a = [numX]
+for(j=0;j<numY;j++) { //seq
+    for(i=0;i<numX;i++) { //par
+        a[i] =  ...
+    }
+    ... //code using a
+}
+        \end{minted}
+    \end{minipage}\hfill
+    \begin{minipage}{.45\textwidth}
+        \begin{minted}{cpp}
+// a = [numY][numX]
+for(j=0;j<numY;j++) { //par
+    for(i=0;i<numX;i++) { //par
+        a[j][i] =  ...
+    }
+    ...//code using a
+}
+        \end{minted}
+    \end{minipage}
 }
 
 \subsection{Loop Distribution}
-\frame{\frametitle{Loop Distribution}
- TEXT
+\frame{\frametitle{Loop Distribution - Before}
+\begin{minted}{cpp}
+PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
+
+for(int i = 0 ; i < outer ; i++) { //par
+    globs[i] = PrivGlobs(numX,numY,numT);
+}
+
+for( unsigned i = 0; i < outer; ++ i ) { //par
+        REAL strike = 0.001*i;
+        initGrid(s0,alpha,nu,t, numX, numY, numT, globs);
+        initOperator(globs.myX,globs.myDxx);
+        initOperator(globs.myY,globs.myDyy);
+
+        setPayoff(strike, globs);
+
+        for(int j = globs.myTimeline.size()-2;j>=0;--j) //seq
+        {
+            updateParams(j,alpha,beta,nu,globs);
+            rollback(j, globs);
+        }
+
+        res[i] = globs[i].myResult[globs.myXindex][globs.myYindex];
+}
+    \end{minted}
+}
+
+\subsection{Loop Distribution}
+\frame{\frametitle{Loop Distribution - After}
+    \begin{minted}{cpp}
+PrivGlobs *globs = (PrivGlobs*) malloc(outer*sizeof(struct PrivGlobs));
+
+for(int i = 0 ; i < outer ; i++) { //par
+    globs[i] = PrivGlobs(numX,numY,numT);
+}
+
+for( unsigned i = 0; i < outer; ++ i ) { //par
+        initGrid(s0,alpha,nu,t, numX, numY, numT, globs[i]);
+        initOperator(globs[i].myX, globs[i].myXsize, globs[i].myDxx, globs[i].myDxxCols);
+        initOperator(globs[i].myY, globs[i].myYsize, globs[i].myDyy, globs[i].myDyyCols);
+        setPayoff(0.001*i, globs[i]);
+}
+
+// sequential loop distributed.
+for(int i = numT-2;i>=0;--i){ //seq
+    #pragma omp parallel for default(shared) schedule(static) if(outer>8)
+    for( unsigned j = 0; j < outer; ++ j ) { //par
+        updateParams(i,alpha,beta,nu,globs[j]);
+        rollback(i, globs[j]);
+    }
+}
+    \end{minted}
 }
 
 \subsection{Memory Coalescing}
-\frame{\frametitle{lMemory Coalescing}
- TEXT
+\frame{\frametitle{Memory Coalescing - Before}
+    \begin{minted}{cpp}
+for(i=0;i<numX;i++) { //par
+    for(j=0;j<numY;j++) { //par
+        u[j][i] = dtInv*globs.myResult[i][j];
+
+        if(i > 0) {
+          u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][0] )
+                        * globs.myResult[i-1][j];
+        }
+        u[j][i]  +=  0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][1] )
+                        * globs.myResult[i][j];
+        if(i < numX-1) {
+          u[j][i] += 0.5*( 0.5*globs.myVarX[i][j]*globs.myDxx[i][2] )
+                        * globs.myResult[i+1][j];
+        }
+    }
+}
+\end{minted}
+}
+
+\subsection{Memory Coalescing}
+\frame{\frametitle{Memory Coalescing - After}
+    \begin{minted}{cpp}
+for(i=0;i<numX;i++) { //par
+    for(j=0;j<numY;j++) { //par
+
+        uT[idx2d(i,j,numY)] = dtInv*globs.myResult[idx2d(i,j,globs.myResultCols)];
+        if(i > 0) {
+            uT[idx2d(i,j,numY)] += /*..*/ globs.myResult[idx2d(i-1,j,globs.myResultCols)];
+        }
+        uT[idx2d(i,j,numY)]  += /*..*/ globs.myResult[idx2d(i,j,globs.myResultCols)];
+        if(i < numX-1) {
+            uT[idx2d(i,j,numY)] += /*..*/ globs.myResult[idx2d(i+1,j,globs.myResultCols)];
+        }
+    }
+}
+transpose(uT, &u, numY, numX);
+    \end{minted}
 }
 
 
@@ -76,7 +264,5 @@ TEXT
 \frame{\frametitle{numbered lists}
 }
 
-\frame{\frametitle{numbered lists with pause}
-}
 
 \end{document}
