@@ -314,6 +314,7 @@ Avg improvement to original over 5 runs (all validate):
 
 }
 
+\subsection{}
 \begin{frame}[fragile]{Tridag Solver shared mem 1}
 \begin{minted}[fontsize=\tiny]{cpp}
 const REAL a_gid = a[gid]; //hold in registers/constant. Accessed twice.
@@ -407,7 +408,7 @@ This was due to mismanagement of the project: making an all-to-CUDA-at-once was 
 
 We did however get through all the methods for parallelizing and optimizing the project and got some parts of the program to run on CUDA.
 
-We did not get to optimizing the \texttt{TRIDAG\_SOLVER} in the project, but this afterwards, as we did not get to use it.
+We did not get to optimizing the \texttt{TRIDAG\_SOLVER} in the project, but did this afterwards.
 }
 
 
